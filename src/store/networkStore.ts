@@ -49,6 +49,7 @@ export interface DisplaySettings {
   nodeSize: number;
   linkWidth: number;
   widthByDiameter: boolean;
+  backgroundColor: string;
 }
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
@@ -60,6 +61,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   nodeSize: 8,
   linkWidth: 3,
   widthByDiameter: false,
+  backgroundColor: '#f8fafc',
 };
 
 export interface ViewTransform {

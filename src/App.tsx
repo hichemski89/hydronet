@@ -13,13 +13,14 @@ import './App.css';
 
 export default function App() {
   const showGrid = useNetworkStore((s) => s.display.showGrid);
+  const backgroundColor = useNetworkStore((s) => s.display.backgroundColor);
   return (
     <div className="app">
       <Toolbar />
       <div className="app-body">
         <ToolPalette />
         <div className="canvas-area">
-          <div className={`map-viewport ${showGrid ? '' : 'no-grid'}`}>
+          <div className={`map-viewport ${showGrid ? '' : 'no-grid'}`} style={{ backgroundColor }}>
             <NetworkCanvas />
             <MapLegend />
             <TimeBar />

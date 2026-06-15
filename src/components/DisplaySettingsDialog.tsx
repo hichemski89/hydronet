@@ -53,6 +53,36 @@ function Slider({
   );
 }
 
+const BG_PRESETS = ['#f8fafc', '#ffffff', '#eef2f7', '#0f172a', '#f0fdf4', '#fef9c3'];
+
+function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="disp-color">
+      <span>{label}</span>
+      <div className="disp-color-controls">
+        {BG_PRESETS.map((c) => (
+          <button
+            key={c}
+            className={`color-swatch ${value.toLowerCase() === c ? 'active' : ''}`}
+            style={{ background: c }}
+            onClick={() => onChange(c)}
+            title={c}
+          />
+        ))}
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} title="Couleur personnalisée" />
+      </div>
+    </div>
+  );
+}
+
 export default function DisplaySettingsDialog() {
   const open = useNetworkStore((s) => s.displayDialogOpen);
   const setOpen = useNetworkStore((s) => s.setDisplayDialogOpen);
@@ -92,6 +122,7 @@ export default function DisplaySettingsDialog() {
           <Toggle label="Flèches de sens d’écoulement" checked={display.showFlowArrows} onChange={(v) => set({ showFlowArrows: v })} />
 
           <div className="disp-section">Carte</div>
+          <ColorRow label="Couleur du fond" value={display.backgroundColor} onChange={(v) => set({ backgroundColor: v })} />
           <Toggle label="Grille de fond" checked={display.showGrid} onChange={(v) => set({ showGrid: v })} />
           <Toggle label="Épaisseur des conduites selon le diamètre" checked={display.widthByDiameter} onChange={(v) => set({ widthByDiameter: v })} />
           <Slider label="Taille des nœuds" value={display.nodeSize} min={4} max={16} step={1} suffix=" px" onChange={(v) => set({ nodeSize: v })} />
@@ -121,5 +152,6 @@ function defaultsForReset(): DisplaySettings {
     nodeSize: 8,
     linkWidth: 3,
     widthByDiameter: false,
+    backgroundColor: '#f8fafc',
   };
 }
