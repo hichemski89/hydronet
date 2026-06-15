@@ -8,6 +8,17 @@ import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
 import { FlowUnit, HeadlossFormula } from '../types/network';
 import { FLOW_UNIT_LABELS } from '../utils/format';
+import {
+  NewIcon,
+  OpenIcon,
+  SaveIcon,
+  UndoIcon,
+  RedoIcon,
+  GridIcon,
+  PlayIcon,
+  PdfIcon,
+  ExportIcon,
+} from './Icons';
 
 const FLOW_UNITS: FlowUnit[] = ['LPS', 'LPM', 'CMH', 'CMD', 'MLD', 'GPM', 'CFS'];
 const HEADLOSS: { id: HeadlossFormula; label: string }[] = [
@@ -119,21 +130,21 @@ export default function Toolbar() {
 
       <div className="toolbar-group">
         <button className="btn" onClick={newNetwork} title="Nouveau réseau vierge">
-          Nouveau
+          <NewIcon size={16} /> Nouveau
         </button>
         <button
           className="btn"
           onClick={() => fileInput.current?.click()}
           title="Ouvrir un projet .hydronet ou importer un fichier EPANET .inp"
         >
-          📂 Ouvrir
+          <OpenIcon size={16} /> Ouvrir
         </button>
         <button
           className="btn"
           onClick={() => saveProjectFile(network)}
           title="Enregistrer le projet (.hydronet)"
         >
-          💾 Enregistrer
+          <SaveIcon size={16} /> Enregistrer
         </button>
         <input
           ref={fileInput}
@@ -144,17 +155,17 @@ export default function Toolbar() {
         />
         <span className="toolbar-sep-v" />
         <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="Annuler (Ctrl+Z)">
-          ↶
+          <UndoIcon size={18} />
         </button>
         <button className="btn btn-icon" onClick={redo} disabled={!canRedo} title="Rétablir (Ctrl+Y)">
-          ↷
+          <RedoIcon size={18} />
         </button>
         <button
           className={`btn btn-icon ${snapToGrid ? 'btn-toggle-on' : ''}`}
           onClick={toggleSnap}
           title="Magnétisme sur grille"
         >
-          ▦
+          <GridIcon size={18} />
         </button>
         <span className="toolbar-sep-v" />
         <button
@@ -162,13 +173,19 @@ export default function Toolbar() {
           onClick={onRun}
           disabled={busy || simStatus === 'running'}
         >
-          {simStatus === 'running' ? '⏳ Calcul…' : '▶ Lancer la simulation'}
+          {simStatus === 'running' ? (
+            <>Calcul…</>
+          ) : (
+            <>
+              <PlayIcon size={16} /> Lancer la simulation
+            </>
+          )}
         </button>
         <button className="btn" onClick={onExportPdf} disabled={busy || !results}>
-          📄 Rapport PDF
+          <PdfIcon size={16} /> Rapport PDF
         </button>
         <button className="btn" onClick={onExportInp} title="Exporter au format EPANET .inp">
-          ⬇ .inp
+          <ExportIcon size={16} /> .inp
         </button>
       </div>
 

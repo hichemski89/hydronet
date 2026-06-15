@@ -120,6 +120,9 @@ body {
 
 /* ---------- Buttons ---------- */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--border);
   background: #fff;
   color: var(--text);
@@ -130,6 +133,9 @@ body {
   cursor: pointer;
   transition: all 0.12s;
   white-space: nowrap;
+}
+.btn svg {
+  flex: 0 0 auto;
 }
 .btn:hover:not(:disabled) {
   border-color: #cbd5e1;

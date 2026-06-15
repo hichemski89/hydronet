@@ -1,22 +1,34 @@
+import { ComponentType } from 'react';
 import { Tool, useNetworkStore } from '../store/networkStore';
+import {
+  SelectIcon,
+  PanIcon,
+  JunctionIcon,
+  ReservoirIcon,
+  TankIcon,
+  PipeIcon,
+  PumpIcon,
+  ValveIcon,
+  ProfileIcon,
+} from './Icons';
 
 interface ToolDef {
   id: Tool;
   label: string;
-  icon: string;
+  Icon: ComponentType<{ size?: number }>;
   group: number;
 }
 
 const TOOLS: ToolDef[] = [
-  { id: 'select', label: 'Sélection / Déplacement', icon: '⬚', group: 0 },
-  { id: 'pan', label: 'Déplacer la vue', icon: '✋', group: 0 },
-  { id: 'junction', label: 'Nœud de demande', icon: '●', group: 1 },
-  { id: 'reservoir', label: 'Réservoir / Source', icon: '▭', group: 1 },
-  { id: 'tank', label: 'Château d’eau', icon: '◻', group: 1 },
-  { id: 'pipe', label: 'Conduite', icon: '╱', group: 2 },
-  { id: 'pump', label: 'Pompe', icon: 'Ⓟ', group: 2 },
-  { id: 'valve', label: 'Vanne', icon: '◈', group: 2 },
-  { id: 'profile', label: 'Profil en long', icon: '⛰', group: 3 },
+  { id: 'select', label: 'Sélection / Déplacement', Icon: SelectIcon, group: 0 },
+  { id: 'pan', label: 'Déplacer la vue', Icon: PanIcon, group: 0 },
+  { id: 'junction', label: 'Nœud de demande', Icon: JunctionIcon, group: 1 },
+  { id: 'reservoir', label: 'Réservoir / Source', Icon: ReservoirIcon, group: 1 },
+  { id: 'tank', label: 'Château d’eau', Icon: TankIcon, group: 1 },
+  { id: 'pipe', label: 'Conduite', Icon: PipeIcon, group: 2 },
+  { id: 'pump', label: 'Pompe', Icon: PumpIcon, group: 2 },
+  { id: 'valve', label: 'Vanne', Icon: ValveIcon, group: 2 },
+  { id: 'profile', label: 'Profil en long', Icon: ProfileIcon, group: 3 },
 ];
 
 export default function ToolPalette() {
@@ -29,6 +41,7 @@ export default function ToolPalette() {
       {TOOLS.map((t) => {
         const sep = t.group !== lastGroup;
         lastGroup = t.group;
+        const { Icon } = t;
         return (
           <div key={t.id}>
             {sep && <div className="tool-sep" />}
@@ -37,7 +50,7 @@ export default function ToolPalette() {
               onClick={() => setTool(t.id)}
               title={t.label}
             >
-              <span className="tool-icon">{t.icon}</span>
+              <Icon size={22} />
             </button>
           </div>
         );
