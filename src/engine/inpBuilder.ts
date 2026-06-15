@@ -20,6 +20,10 @@ export function buildInp(network: Network): string {
   const L: string[] = [];
   const { options } = network;
 
+  // N'émet un identifiant de motif que s'il existe réellement (évite les
+  // références indéfinies qui empêchent EPANET d'ouvrir le fichier).
+  const refPattern = (id?: string): string => (id && network.patterns[id] ? id : '');
+
   L.push('[TITLE]');
   L.push(network.meta.name || 'Réseau');
   L.push('');
@@ -37,14 +41,14 @@ export function buildInp(network: Network): string {
   L.push('[JUNCTIONS]');
   L.push(';ID\tElev\tDemand\tPattern');
   for (const j of junctions) {
-    L.push(`${j.id}\t${n(j.elevation)}\t${n(j.baseDemand)}\t${j.pattern ?? ''}`.trimEnd());
+    L.push(`${j.id}\t${n(j.elevation)}\t${n(j.baseDemand)}\t${refPattern(j.pattern)}`.trimEnd());
   }
   L.push('');
 
   L.push('[RESERVOIRS]');
   L.push(';ID\tHead\tPattern');
   for (const r of reservoirs) {
-    L.push(`${r.id}\t${n(r.head)}\t${r.pattern ?? ''}`.trimEnd());
+    L.push(`${r.id}\t${n(r.head)}\t${refPattern(r.pattern)}`.trimEnd());
   }
   L.push('');
 
@@ -93,6 +97,8 @@ export function buildInp(network: Network): string {
         pu.curve && pu.curve.length
           ? pu.curve
           : [{ flow: pu.designFlow ?? 50, head: pu.designHead ?? 40 }];
+      // Le commentaire ;PUMP: permet à EPANET Desktop de typer la courbe.
+      curveLines.push(`;PUMP: ${pu.id}`);
       for (const p of pts) curveLines.push(`${curveId}\t${n(p.flow)}\t${n(p.head)}`);
       let line = `${pu.id}\t${pu.node1}\t${pu.node2}\tHEAD ${curveId}`;
       if (pu.speed != null && pu.speed !== 1) line += ` SPEED ${n(pu.speed)}`;
@@ -153,7 +159,9 @@ export function buildInp(network: Network): string {
   L.push(`Trials\t${options.trials}`);
   L.push(`Accuracy\t${n(options.accuracy)}`);
   L.push('Unbalanced\tCONTINUE 10');
-  L.push('Pattern\t1');
+  // Motif par défaut : seulement s'il existe un motif portant ce nom, sinon
+  // chaque nœud porte déjà son propre motif (demande constante par défaut).
+  if (network.patterns['1']) L.push('Pattern\t1');
   L.push('Demand Multiplier\t1.0');
   L.push('');
 
