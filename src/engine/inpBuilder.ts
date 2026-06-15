@@ -198,5 +198,8 @@ export function buildInp(network: Network): string {
   L.push('');
 
   L.push('[END]');
-  return L.join('\n');
+  // Fins de ligne Windows (CRLF) : EPANET Desktop ne reconnaît les sections
+  // qu'avec des CRLF. En LF seul, il lit tout le fichier comme une seule ligne
+  // et n'affiche aucun élément.
+  return L.join('\r\n');
 }
