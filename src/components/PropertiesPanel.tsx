@@ -11,6 +11,13 @@ import {
   PumpMode,
 } from '../types/network';
 import { flowUnitLabel } from '../utils/format';
+import {
+  PIPE_MATERIALS,
+  getMaterial,
+  getDiameter,
+  getSize,
+  materialRoughness,
+} from '../data/pipeCatalog';
 
 function Field({
   label,
@@ -211,7 +218,7 @@ export default function PropertiesPanel() {
       {link.type === 'pipe' && (
         <>
           <Field label="Longueur" unit={lenU} value={(link as Pipe).length} onChange={(v) => updateLink(link.id, { length: v })} />
-          <Field label="Diamètre" unit="mm" value={(link as Pipe).diameter} onChange={(v) => updateLink(link.id, { diameter: v })} />
+          <PipeCatalogEditor pipe={link as Pipe} />
           <Field label="Rugosité" value={(link as Pipe).roughness} onChange={(v) => updateLink(link.id, { roughness: v })} />
           <Field label="Pertes singulières" value={(link as Pipe).minorLoss} step={0.1} onChange={(v) => updateLink(link.id, { minorLoss: v })} />
           <StatusSelect value={(link as Pipe).status} onChange={(v) => updateLink(link.id, { status: v })} />
@@ -422,6 +429,119 @@ function ControlsEditor() {
       >
         + Ajouter un contrôle
       </button>
+    </>
+  );
+}
+
+function PipeCatalogEditor({ pipe }: { pipe: Pipe }) {
+  const updateLink = useNetworkStore((s) => s.updateLink);
+  const commit = useNetworkStore((s) => s.commit);
+  const formula = useNetworkStore((s) => s.network.options.headlossFormula);
+  const material = getMaterial(pipe.material);
+
+  const applyMaterial = (matId: string) => {
+    commit();
+    if (!matId) {
+      updateLink(pipe.id, { material: undefined, dn: undefined, pn: undefined });
+      return;
+    }
+    const mat = getMaterial(matId);
+    if (!mat) return;
+    const dn = pipe.dn && getDiameter(mat, pipe.dn) ? pipe.dn : 110;
+    const dia = getDiameter(mat, dn) ?? mat.diameters[0];
+    const size = getSize(mat, dia.dn, pipe.pn ?? 16) ?? dia.sizes[Math.floor(dia.sizes.length / 2)];
+    updateLink(pipe.id, {
+      material: matId,
+      dn: dia.dn,
+      pn: size.pn,
+      diameter: size.innerDiameter,
+      roughness: materialRoughness(mat, formula),
+    });
+  };
+
+  const applyDn = (dn: number) => {
+    if (!material) return;
+    commit();
+    const dia = getDiameter(material, dn);
+    if (!dia) return;
+    const size = getSize(material, dn, pipe.pn ?? 16) ?? dia.sizes[Math.floor(dia.sizes.length / 2)];
+    updateLink(pipe.id, { dn, pn: size.pn, diameter: size.innerDiameter });
+  };
+
+  const applyPn = (pn: number) => {
+    if (!material || !pipe.dn) return;
+    commit();
+    const size = getSize(material, pipe.dn, pn);
+    if (!size) return;
+    updateLink(pipe.id, { pn, diameter: size.innerDiameter });
+  };
+
+  const MaterialSelect = (
+    <label className="field">
+      <span className="field-label">Tube (bibliothèque)</span>
+      <select value={material?.id ?? ''} onFocus={commit} onChange={(e) => applyMaterial(e.target.value)}>
+        <option value="">Personnalisé (saisie libre)</option>
+        {PIPE_MATERIALS.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  if (!material) {
+    return (
+      <>
+        {MaterialSelect}
+        <Field
+          label="Diamètre intérieur"
+          unit="mm"
+          value={pipe.diameter}
+          onChange={(v) => updateLink(pipe.id, { diameter: v })}
+        />
+      </>
+    );
+  }
+
+  const dia = pipe.dn ? getDiameter(material, pipe.dn) : undefined;
+  const size = pipe.dn && pipe.pn ? getSize(material, pipe.dn, pipe.pn) : undefined;
+
+  return (
+    <>
+      {MaterialSelect}
+      <div className="catalog-row">
+        <label className="field">
+          <span className="field-label">DN extérieur</span>
+          <select value={pipe.dn ?? ''} onFocus={commit} onChange={(e) => applyDn(Number(e.target.value))}>
+            {material.diameters.map((d) => (
+              <option key={d.dn} value={d.dn}>
+                {d.dn} mm
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Pression</span>
+          <select value={pipe.pn ?? ''} onFocus={commit} onChange={(e) => applyPn(Number(e.target.value))}>
+            {dia?.sizes.map((s) => (
+              <option key={s.pn} value={s.pn}>
+                PN{s.pn} (SDR {s.sdr})
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="catalog-info">
+        {size ? (
+          <>
+            Épaisseur {size.thickness} mm · <strong>Ø intérieur {size.innerDiameter} mm</strong> (utilisé
+            pour le calcul)
+          </>
+        ) : (
+          'Combinaison DN/PN non disponible'
+        )}
+      </div>
     </>
   );
 }

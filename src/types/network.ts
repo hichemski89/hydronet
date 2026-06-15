@@ -57,11 +57,19 @@ export interface BaseLink {
 export interface Pipe extends BaseLink {
   type: 'pipe';
   length: number;
+  /** Diamètre INTÉRIEUR (mm) — utilisé pour l'hydraulique. */
   diameter: number;
   /** Coefficient de rugosité (selon la formule de perte de charge). */
   roughness: number;
   minorLoss: number;
   status: LinkStatus;
+  // --- Référence catalogue (optionnelle) ---
+  /** Identifiant du matériau catalogue (ex. PEHD PE100). */
+  material?: string;
+  /** Diamètre extérieur nominal (DN, mm). */
+  dn?: number;
+  /** Pression nominale (PN, bar). */
+  pn?: number;
 }
 
 export interface PumpCurvePoint {

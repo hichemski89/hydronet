@@ -230,11 +230,14 @@ export function generateReport(input: ReportInput): void {
     const flow = r?.flow ?? [];
     const vel = r?.velocity ?? [];
     const hl = r?.headloss ?? [];
-    const diam = lk.type === 'pump' ? '—' : (lk as { diameter?: number }).diameter?.toFixed(0) ?? '—';
+    const diam = lk.type === 'pump' ? '—' : (lk as { diameter?: number }).diameter?.toFixed(1) ?? '—';
     const len = lk.type === 'pipe' ? lk.length.toFixed(0) : '—';
+    const tube =
+      lk.type === 'pipe' && lk.dn ? `DN${lk.dn}${lk.pn ? ` PN${lk.pn}` : ''}` : '—';
     return [
       lk.id,
       linkTypeLabel(lk.type),
+      tube,
       len,
       diam,
       fmtAt(flow, timeIndex),
@@ -247,7 +250,7 @@ export function generateReport(input: ReportInput): void {
     margin: { left: margin, right: margin },
     theme: 'striped',
     headStyles: { fillColor: BRAND },
-    head: [['ID', 'Type', `Long. (${lenU})`, 'Diam. (mm)', `Débit (${flowU})`, `Vitesse (${lenU}/s)`, `Perte (${lenU})`]],
+    head: [['ID', 'Type', 'Tube', `Long. (${lenU})`, 'Ø int. (mm)', `Débit (${flowU})`, `Vitesse (${lenU}/s)`, `Perte (${lenU})`]],
     body: linkBody,
     styles: { fontSize: 8 },
   });
