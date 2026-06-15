@@ -36,3 +36,23 @@ export function clearPersistedNetwork(): void {
     /* ignoré */
   }
 }
+
+const KEY_DISPLAY = 'hydronet:display:v1';
+
+/** Réglages d'affichage persistés (ou null). Typé librement pour éviter le couplage. */
+export function loadPersistedDisplay<T>(): T | null {
+  try {
+    const raw = localStorage.getItem(KEY_DISPLAY);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function savePersistedDisplay(display: unknown): void {
+  try {
+    localStorage.setItem(KEY_DISPLAY, JSON.stringify(display));
+  } catch {
+    /* ignoré */
+  }
+}

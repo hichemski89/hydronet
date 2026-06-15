@@ -15,7 +15,12 @@ import {
   DEFAULT_CRITERIA,
 } from '../types/network';
 import { sampleNetwork } from '../utils/sampleNetwork';
-import { loadPersistedNetwork, savePersistedNetwork } from './persist';
+import {
+  loadPersistedNetwork,
+  savePersistedNetwork,
+  loadPersistedDisplay,
+  savePersistedDisplay,
+} from './persist';
 
 export type Tool =
   | 'select'
@@ -34,6 +39,28 @@ export interface Selection {
 }
 
 export type ResultMetric = 'pressure' | 'head' | 'demand' | 'flow' | 'velocity' | 'headloss';
+
+export interface DisplaySettings {
+  showNodeLabels: boolean;
+  showLinkLabels: boolean;
+  showResultValues: boolean;
+  showFlowArrows: boolean;
+  showGrid: boolean;
+  nodeSize: number;
+  linkWidth: number;
+  widthByDiameter: boolean;
+}
+
+export const DEFAULT_DISPLAY: DisplaySettings = {
+  showNodeLabels: true,
+  showLinkLabels: false,
+  showResultValues: true,
+  showFlowArrows: true,
+  showGrid: true,
+  nodeSize: 8,
+  linkWidth: 3,
+  widthByDiameter: false,
+};
 
 export interface ViewTransform {
   scale: number;
@@ -70,6 +97,9 @@ interface NetworkState {
   /** Magnétisme sur grille lors de l'ajout/déplacement des nœuds. */
   snapToGrid: boolean;
   gridSize: number;
+  /** Réglages d'affichage de la carte. */
+  display: DisplaySettings;
+  displayDialogOpen: boolean;
   /** Incrémenté pour demander un recadrage de la vue (chargement d'un réseau). */
   fitRequest: number;
 
@@ -110,6 +140,8 @@ interface NetworkState {
   redo: () => void;
   toggleSnap: () => void;
   duplicateSelection: () => void;
+  updateDisplay: (patch: Partial<DisplaySettings>) => void;
+  setDisplayDialogOpen: (open: boolean) => void;
   loadNetwork: (network: Network) => void;
   newNetwork: () => void;
 }
@@ -230,6 +262,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   future: [],
   snapToGrid: false,
   gridSize: 20,
+  display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
+  displayDialogOpen: false,
   fitRequest: 0,
 
   setTool: (tool) => set({ tool, pendingLink: null }),
@@ -348,6 +382,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   requestFit: () => set((s) => ({ fitRequest: s.fitRequest + 1 })),
+
+  updateDisplay: (patch) => set((s) => ({ display: { ...s.display, ...patch } })),
+  setDisplayDialogOpen: (displayDialogOpen) => set({ displayDialogOpen }),
 
   deleteSelection: () => {
     const sel = get().selection;
@@ -519,4 +556,12 @@ useNetworkStore.subscribe((state) => {
   lastSavedNetwork = state.network;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => savePersistedNetwork(lastSavedNetwork), 600);
+});
+
+// --- Persistance des réglages d'affichage ---
+let lastDisplay = useNetworkStore.getState().display;
+useNetworkStore.subscribe((state) => {
+  if (state.display === lastDisplay) return;
+  lastDisplay = state.display;
+  savePersistedDisplay(lastDisplay);
 });

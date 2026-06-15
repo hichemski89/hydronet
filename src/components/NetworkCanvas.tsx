@@ -17,7 +17,6 @@ interface Pt {
   y: number;
 }
 
-const NODE_R = 8;
 const MOVE_THRESHOLD = 4;
 
 export default function NetworkCanvas() {
@@ -40,6 +39,8 @@ export default function NetworkCanvas() {
   const reverseLink = useNetworkStore((s) => s.reverseLink);
   const requestFit = useNetworkStore((s) => s.requestFit);
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
+  const setDisplayDialogOpen = useNetworkStore((s) => s.setDisplayDialogOpen);
+  const display = useNetworkStore((s) => s.display);
   const startLink = useNetworkStore((s) => s.startLink);
   const addLinkVertex = useNetworkStore((s) => s.addLinkVertex);
   const completeLink = useNetworkStore((s) => s.completeLink);
@@ -288,6 +289,8 @@ export default function NetworkCanvas() {
         { type: 'separator' },
         { label: snapToGrid ? 'Désactiver le magnétisme' : 'Activer le magnétisme', icon: '▦', onClick: toggleSnap },
         { label: 'Recadrer la vue', icon: '⊡', onClick: requestFit },
+        { type: 'separator' },
+        { label: 'Options d’affichage…', icon: '⚙', onClick: () => setDisplayDialogOpen(true) },
       ];
     }
     setMenu({ x: e.clientX, y: e.clientY, items });
@@ -337,19 +340,20 @@ export default function NetworkCanvas() {
     };
 
     let stroke = '#5b6b7c';
-    let width = 3;
+    let width = display.linkWidth;
+    if (display.widthByDiameter && link.type === 'pipe') {
+      width = Math.max(1.5, Math.min(10, link.diameter / 50));
+    }
     let flowVal: number | undefined;
     if (results && showOverlay) {
       flowVal = linkValue(results, linkId, 'flow', timeIndex);
       if (colorMode === 'compliance' && link.type === 'pipe') {
         const v = linkValue(results, linkId, 'velocity', timeIndex);
         stroke = STATUS_COLOR[velocityStatus(v, network.criteria)];
-        width = 4;
       } else if (lDomain && !isNodeMetric(linkMetric)) {
         const v = linkValue(results, linkId, linkMetric, timeIndex);
         if (v != null && isFinite(v)) {
           stroke = colorFor(normalize(Math.abs(v), lDomain));
-          width = 4;
         }
       }
     }
@@ -369,17 +373,24 @@ export default function NetworkCanvas() {
           strokeLinecap="round"
         />
         {/* Flèche de sens d'écoulement */}
-        {results && showOverlay && flowVal != null && Math.abs(flowVal) > 1e-6 && (
+        {results && showOverlay && display.showFlowArrows && flowVal != null && Math.abs(flowVal) > 1e-6 && (
           <FlowArrow pts={pts} reversed={flowVal < 0} />
         )}
         {/* Symbole de pompe / vanne */}
         {link.type === 'pump' && <LinkSymbol type="pump" at={midScreen} selected={isSel} />}
         {link.type === 'valve' && <LinkSymbol type="valve" at={midScreen} selected={isSel} />}
+        {/* Étiquette de lien */}
+        {display.showLinkLabels && (
+          <text x={midScreen.x + 6} y={midScreen.y - 6} fontSize={10} fill="#6b7280" style={{ userSelect: 'none' }}>
+            {link.id}
+          </text>
+        )}
       </g>
     );
   };
 
   const renderNode = (node: NetworkNode) => {
+    const NODE_R = display.nodeSize;
     const p = modelToScreen(node);
     const isSel = selection?.kind === 'node' && selection.id === node.id;
     let fill = nodeFill(node.type);
@@ -428,10 +439,12 @@ export default function NetworkCanvas() {
             data-node={node.id}
           />
         )}
-        <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={11} fill="#374151" style={{ userSelect: 'none' }}>
-          {node.id}
-        </text>
-        {resultText && (
+        {display.showNodeLabels && (
+          <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={11} fill="#374151" style={{ userSelect: 'none' }}>
+            {node.id}
+          </text>
+        )}
+        {resultText && display.showResultValues && (
           <text x={p.x} y={p.y + NODE_R + 13} fontSize={10} fontWeight={600} fill="#111827" textAnchor="middle" style={{ userSelect: 'none' }}>
             {resultText}
           </text>
