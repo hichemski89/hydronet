@@ -1,0 +1,17 @@
+# Configuration Render (Blueprint) — site statique HydroNet
+# Render détecte ce fichier automatiquement lors d'un déploiement "Blueprint".
+services:
+  - type: web
+    name: hydronet
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    # Toutes les routes renvoient vers index.html (application monopage).
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff

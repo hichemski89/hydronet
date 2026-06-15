@@ -1,0 +1,469 @@
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNetworkStore } from '../store/networkStore';
+import { NetworkNode } from '../types/network';
+import { colorFor, normalize } from '../utils/colorScale';
+import {
+  isNodeMetric,
+  nodeValue,
+  linkValue,
+  nodeDomain,
+  linkDomain,
+} from '../utils/resultsAccess';
+import { pressureStatus, velocityStatus, STATUS_COLOR } from '../utils/compliance';
+
+interface Pt {
+  x: number;
+  y: number;
+}
+
+const NODE_R = 8;
+const MOVE_THRESHOLD = 4;
+
+export default function NetworkCanvas() {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [size, setSize] = useState({ w: 800, h: 600 });
+  const [cursorModel, setCursorModel] = useState<Pt | null>(null);
+
+  const network = useNetworkStore((s) => s.network);
+  const view = useNetworkStore((s) => s.view);
+  const setView = useNetworkStore((s) => s.setView);
+  const tool = useNetworkStore((s) => s.tool);
+  const selection = useNetworkStore((s) => s.selection);
+  const select = useNetworkStore((s) => s.select);
+  const addNode = useNetworkStore((s) => s.addNode);
+  const updateNode = useNetworkStore((s) => s.updateNode);
+  const startLink = useNetworkStore((s) => s.startLink);
+  const addLinkVertex = useNetworkStore((s) => s.addLinkVertex);
+  const completeLink = useNetworkStore((s) => s.completeLink);
+  const cancelPendingLink = useNetworkStore((s) => s.cancelPendingLink);
+  const pendingLink = useNetworkStore((s) => s.pendingLink);
+  const deleteSelection = useNetworkStore((s) => s.deleteSelection);
+  const results = useNetworkStore((s) => s.results);
+  const showOverlay = useNetworkStore((s) => s.showResultsOverlay);
+  const timeIndex = useNetworkStore((s) => s.currentTimeIndex);
+  const nodeMetric = useNetworkStore((s) => s.nodeMetric);
+  const linkMetric = useNetworkStore((s) => s.linkMetric);
+  const colorMode = useNetworkStore((s) => s.colorMode);
+  const profilePath = useNetworkStore((s) => s.profilePath);
+  const addToProfile = useNetworkStore((s) => s.addToProfile);
+  const fitRequest = useNetworkStore((s) => s.fitRequest);
+
+  // Suivi des interactions (souris)
+  const interaction = useRef<{
+    mode: 'none' | 'pan' | 'dragNode' | 'maybe';
+    startScreen: Pt;
+    lastScreen: Pt;
+    nodeId?: string;
+    targetKind?: 'node' | 'link';
+    targetId?: string;
+    moved: boolean;
+  }>({ mode: 'none', startScreen: { x: 0, y: 0 }, lastScreen: { x: 0, y: 0 }, moved: false });
+
+  // Redimensionnement
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0].contentRect;
+      setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Auto-cadrage : au premier rendu et à chaque demande (chargement de réseau).
+  const fittedReq = useRef(-1);
+  useEffect(() => {
+    if (fittedReq.current === fitRequest || size.w < 50) return;
+    const nodes = Object.values(network.nodes);
+    if (nodes.length === 0) {
+      // Réseau vierge : vue centrée par défaut.
+      setView({ scale: 1, offsetX: size.w / 2, offsetY: size.h / 2 });
+      fittedReq.current = fitRequest;
+      return;
+    }
+    const xs = nodes.map((nd) => nd.x);
+    const ys = nodes.map((nd) => nd.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const w = Math.max(maxX - minX, 1);
+    const h = Math.max(maxY - minY, 1);
+    const pad = 80;
+    const scale = Math.min((size.w - pad) / w, (size.h - pad) / h, 3);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    setView({
+      scale,
+      offsetX: size.w / 2 - cx * scale,
+      offsetY: size.h / 2 + cy * scale,
+    });
+    fittedReq.current = fitRequest;
+  }, [size, network.nodes, setView, fitRequest]);
+
+  const modelToScreen = useCallback(
+    (p: Pt): Pt => ({ x: p.x * view.scale + view.offsetX, y: -p.y * view.scale + view.offsetY }),
+    [view],
+  );
+  const screenToModel = useCallback(
+    (sx: number, sy: number): Pt => ({
+      x: (sx - view.offsetX) / view.scale,
+      y: -(sy - view.offsetY) / view.scale,
+    }),
+    [view],
+  );
+
+  const getScreenPoint = useCallback((e: React.PointerEvent | React.WheelEvent): Pt => {
+    const rect = svgRef.current!.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }, []);
+
+  // Domaines de couleur (au temps courant)
+  const nDomain = results ? nodeDomain(results, nodeMetric, timeIndex) : null;
+  const lDomain = results ? linkDomain(results, linkMetric, timeIndex) : null;
+
+  // --- Gestion des événements ---
+  const onPointerDown = (e: React.PointerEvent) => {
+    const sp = getScreenPoint(e);
+    svgRef.current?.setPointerCapture(e.pointerId);
+    const target = e.target as Element;
+    const nodeId = target.getAttribute('data-node');
+    const linkId = target.getAttribute('data-link');
+
+    if (tool === 'pan' || e.button === 1) {
+      interaction.current = { mode: 'pan', startScreen: sp, lastScreen: sp, moved: false };
+      return;
+    }
+    interaction.current = {
+      mode: 'maybe',
+      startScreen: sp,
+      lastScreen: sp,
+      moved: false,
+      nodeId: nodeId ?? undefined,
+      targetKind: nodeId ? 'node' : linkId ? 'link' : undefined,
+      targetId: nodeId ?? linkId ?? undefined,
+    };
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const sp = getScreenPoint(e);
+    setCursorModel(screenToModel(sp.x, sp.y));
+    const it = interaction.current;
+    const dx = sp.x - it.startScreen.x;
+    const dy = sp.y - it.startScreen.y;
+
+    if (it.mode === 'maybe' && Math.hypot(dx, dy) > MOVE_THRESHOLD) {
+      // Démarre un déplacement de nœud (outil sélection) ou un pan
+      if (it.nodeId && tool === 'select') it.mode = 'dragNode';
+      else it.mode = 'pan';
+      it.moved = true;
+    }
+
+    if (it.mode === 'pan') {
+      const ddx = sp.x - it.lastScreen.x;
+      const ddy = sp.y - it.lastScreen.y;
+      setView({ offsetX: view.offsetX + ddx, offsetY: view.offsetY + ddy });
+      it.lastScreen = sp;
+      it.moved = true;
+    } else if (it.mode === 'dragNode' && it.nodeId) {
+      const mp = screenToModel(sp.x, sp.y);
+      updateNode(it.nodeId, { x: mp.x, y: mp.y });
+      it.lastScreen = sp;
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    const it = interaction.current;
+    svgRef.current?.releasePointerCapture(e.pointerId);
+
+    if (it.mode === 'maybe' && !it.moved) {
+      handleClick(it.targetKind, it.targetId, e);
+    }
+    interaction.current = { ...it, mode: 'none', moved: false };
+  };
+
+  const handleClick = (
+    targetKind: 'node' | 'link' | undefined,
+    targetId: string | undefined,
+    e: React.PointerEvent,
+  ) => {
+    const sp = getScreenPoint(e);
+    const mp = screenToModel(sp.x, sp.y);
+
+    // Outils de placement de nœud
+    if (tool === 'junction' || tool === 'reservoir' || tool === 'tank') {
+      if (!targetId) addNode(tool, mp.x, mp.y);
+      return;
+    }
+
+    // Outils de tracé de lien
+    if (tool === 'pipe' || tool === 'pump' || tool === 'valve') {
+      if (targetKind === 'node' && targetId) {
+        if (!pendingLink) startLink(tool, targetId);
+        else completeLink(targetId);
+      } else if (pendingLink) {
+        addLinkVertex(mp.x, mp.y);
+      }
+      return;
+    }
+
+    // Outil profil : ajoute le nœud cliqué au tracé
+    if (tool === 'profile') {
+      if (targetKind === 'node' && targetId) addToProfile(targetId);
+      return;
+    }
+
+    // Outil sélection
+    if (targetKind && targetId) select({ kind: targetKind, id: targetId });
+    else select(null);
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const sp = getScreenPoint(e);
+    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    const newScale = Math.max(0.05, Math.min(20, view.scale * factor));
+    // Zoom centré sur le curseur
+    const mp = screenToModel(sp.x, sp.y);
+    setView({
+      scale: newScale,
+      offsetX: sp.x - mp.x * newScale,
+      offsetY: sp.y + mp.y * newScale,
+    });
+  };
+
+  // Raccourcis clavier
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'Escape') cancelPendingLink();
+      if (e.key === 'Delete' || e.key === 'Backspace') deleteSelection();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [cancelPendingLink, deleteSelection]);
+
+  // --- Rendu ---
+  const renderLink = (linkId: string) => {
+    const link = network.links[linkId];
+    const a = network.nodes[link.node1];
+    const b = network.nodes[link.node2];
+    if (!a || !b) return null;
+    const pts: Pt[] = [modelToScreen(a), ...(link.vertices ?? []).map(modelToScreen), modelToScreen(b)];
+    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    const midScreen = {
+      x: (pts[0].x + pts[pts.length - 1].x) / 2,
+      y: (pts[0].y + pts[pts.length - 1].y) / 2,
+    };
+
+    let stroke = '#5b6b7c';
+    let width = 3;
+    let flowVal: number | undefined;
+    if (results && showOverlay) {
+      flowVal = linkValue(results, linkId, 'flow', timeIndex);
+      if (colorMode === 'compliance' && link.type === 'pipe') {
+        const v = linkValue(results, linkId, 'velocity', timeIndex);
+        stroke = STATUS_COLOR[velocityStatus(v, network.criteria)];
+        width = 4;
+      } else if (lDomain && !isNodeMetric(linkMetric)) {
+        const v = linkValue(results, linkId, linkMetric, timeIndex);
+        if (v != null && isFinite(v)) {
+          stroke = colorFor(normalize(Math.abs(v), lDomain));
+          width = 4;
+        }
+      }
+    }
+    const isSel = selection?.kind === 'link' && selection.id === linkId;
+
+    return (
+      <g key={linkId}>
+        {/* Zone de clic élargie (invisible) */}
+        <path d={path} stroke="transparent" strokeWidth={14} fill="none" data-link={linkId} style={{ cursor: 'pointer' }} />
+        <path
+          d={path}
+          stroke={isSel ? '#1d4ed8' : stroke}
+          strokeWidth={isSel ? width + 2 : width}
+          fill="none"
+          data-link={linkId}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {/* Flèche de sens d'écoulement */}
+        {results && showOverlay && flowVal != null && Math.abs(flowVal) > 1e-6 && (
+          <FlowArrow pts={pts} reversed={flowVal < 0} />
+        )}
+        {/* Symbole de pompe / vanne */}
+        {link.type === 'pump' && <LinkSymbol type="pump" at={midScreen} selected={isSel} />}
+        {link.type === 'valve' && <LinkSymbol type="valve" at={midScreen} selected={isSel} />}
+      </g>
+    );
+  };
+
+  const renderNode = (node: NetworkNode) => {
+    const p = modelToScreen(node);
+    const isSel = selection?.kind === 'node' && selection.id === node.id;
+    let fill = nodeFill(node.type);
+    let resultText: string | null = null;
+    if (results && showOverlay) {
+      if (colorMode === 'compliance') {
+        if (node.type === 'junction') {
+          const v = nodeValue(results, node.id, 'pressure', timeIndex);
+          fill = STATUS_COLOR[pressureStatus(v, network.criteria)];
+          if (v != null && isFinite(v)) resultText = v.toFixed(1);
+        }
+      } else if (nDomain && isNodeMetric(nodeMetric)) {
+        const v = nodeValue(results, node.id, nodeMetric, timeIndex);
+        if (v != null && isFinite(v)) {
+          fill = colorFor(normalize(v, nDomain));
+          resultText = v.toFixed(1);
+        }
+      }
+    }
+    const stroke = isSel ? '#1d4ed8' : '#1f2937';
+    const sw = isSel ? 3 : 1.5;
+
+    return (
+      <g key={node.id} data-node={node.id} style={{ cursor: tool === 'select' ? 'move' : 'pointer' }}>
+        {node.type === 'junction' && (
+          <circle cx={p.x} cy={p.y} r={NODE_R} fill={fill} stroke={stroke} strokeWidth={sw} data-node={node.id} />
+        )}
+        {node.type === 'reservoir' && (
+          <rect
+            x={p.x - NODE_R - 2}
+            y={p.y - NODE_R}
+            width={(NODE_R + 2) * 2}
+            height={NODE_R * 2}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={sw}
+            data-node={node.id}
+          />
+        )}
+        {node.type === 'tank' && (
+          <path
+            d={tankPath(p.x, p.y, NODE_R + 2)}
+            fill={fill}
+            stroke={stroke}
+            strokeWidth={sw}
+            data-node={node.id}
+          />
+        )}
+        <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={11} fill="#374151" style={{ userSelect: 'none' }}>
+          {node.id}
+        </text>
+        {resultText && (
+          <text x={p.x} y={p.y + NODE_R + 13} fontSize={10} fontWeight={600} fill="#111827" textAnchor="middle" style={{ userSelect: 'none' }}>
+            {resultText}
+          </text>
+        )}
+      </g>
+    );
+  };
+
+  // Surbrillance du tracé de profil
+  const renderProfilePath = () => {
+    if (profilePath.length < 1) return null;
+    const pts = profilePath.map((id) => network.nodes[id]).filter(Boolean).map(modelToScreen);
+    if (pts.length === 0) return null;
+    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    return (
+      <g className="profile-path">
+        {pts.length > 1 && (
+          <path d={path} stroke="#7c3aed" strokeWidth={5} fill="none" opacity={0.55} strokeLinecap="round" strokeLinejoin="round" />
+        )}
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={11} fill="#7c3aed" opacity={0.9} />
+            <text x={p.x} y={p.y + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="#fff">
+              {i + 1}
+            </text>
+          </g>
+        ))}
+      </g>
+    );
+  };
+
+  // Tracé en cours (rubber-band)
+  const renderPending = () => {
+    if (!pendingLink || !cursorModel) return null;
+    const a = network.nodes[pendingLink.node1];
+    if (!a) return null;
+    const pts = [modelToScreen(a), ...pendingLink.vertices.map(modelToScreen), modelToScreen(cursorModel)];
+    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    return <path d={path} stroke="#1d4ed8" strokeWidth={2} strokeDasharray="6 4" fill="none" />;
+  };
+
+  return (
+    <svg
+      ref={svgRef}
+      className="network-canvas"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onWheel={onWheel}
+      style={{ touchAction: 'none' }}
+    >
+      <rect x={0} y={0} width={size.w} height={size.h} fill="transparent" />
+      <g>{Object.keys(network.links).map(renderLink)}</g>
+      {renderProfilePath()}
+      {renderPending()}
+      <g>{Object.values(network.nodes).map(renderNode)}</g>
+    </svg>
+  );
+}
+
+function nodeFill(type: NetworkNode['type']): string {
+  switch (type) {
+    case 'junction':
+      return '#9ca3af';
+    case 'reservoir':
+      return '#2563eb';
+    case 'tank':
+      return '#0891b2';
+  }
+}
+
+function tankPath(cx: number, cy: number, r: number): string {
+  // Petit cylindre stylisé
+  return `M${cx - r},${cy - r} h${2 * r} v${2 * r} h${-2 * r} z`;
+}
+
+function FlowArrow({ pts, reversed }: { pts: Pt[]; reversed: boolean }) {
+  // Flèche au milieu du segment central
+  const i = Math.max(1, Math.floor(pts.length / 2));
+  const p0 = pts[i - 1];
+  const p1 = pts[i];
+  const mx = (p0.x + p1.x) / 2;
+  const my = (p0.y + p1.y) / 2;
+  let ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+  if (reversed) ang += Math.PI;
+  const s = 6;
+  const tip = { x: mx + Math.cos(ang) * s, y: my + Math.sin(ang) * s };
+  const left = { x: mx + Math.cos(ang + 2.4) * s, y: my + Math.sin(ang + 2.4) * s };
+  const right = { x: mx + Math.cos(ang - 2.4) * s, y: my + Math.sin(ang - 2.4) * s };
+  return <polygon points={`${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}`} fill="#0f172a" opacity={0.7} />;
+}
+
+function LinkSymbol({ type, at, selected }: { type: 'pump' | 'valve'; at: Pt; selected: boolean }) {
+  const stroke = selected ? '#1d4ed8' : '#0f172a';
+  if (type === 'pump') {
+    return (
+      <g>
+        <circle cx={at.x} cy={at.y} r={7} fill="#fef3c7" stroke={stroke} strokeWidth={1.5} />
+        <text x={at.x} y={at.y + 3} fontSize={9} fontWeight={700} textAnchor="middle" fill={stroke}>
+          P
+        </text>
+      </g>
+    );
+  }
+  return (
+    <polygon
+      points={`${at.x - 7},${at.y - 6} ${at.x + 7},${at.y - 6} ${at.x - 7},${at.y + 6} ${at.x + 7},${at.y + 6}`}
+      fill="#fde68a"
+      stroke={stroke}
+      strokeWidth={1.5}
+    />
+  );
+}

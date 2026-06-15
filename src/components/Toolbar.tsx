@@ -1,0 +1,187 @@
+import { useRef, useState } from 'react';
+import { useNetworkStore } from '../store/networkStore';
+import { runSimulation, validateNetwork } from '../engine/epanetRunner';
+import { buildInp } from '../engine/inpBuilder';
+import { parseInp } from '../engine/inpParser';
+import { saveProjectFile, parseProjectFile, readFileAsText } from '../engine/projectIO';
+import { generateReport } from '../report/reportGenerator';
+import { captureCanvasPng } from '../utils/svgCapture';
+import { FlowUnit, HeadlossFormula } from '../types/network';
+import { FLOW_UNIT_LABELS } from '../utils/format';
+
+const FLOW_UNITS: FlowUnit[] = ['LPS', 'LPM', 'CMH', 'CMD', 'MLD', 'GPM', 'CFS'];
+const HEADLOSS: { id: HeadlossFormula; label: string }[] = [
+  { id: 'H-W', label: 'Hazen-Williams' },
+  { id: 'D-W', label: 'Darcy-Weisbach' },
+  { id: 'C-M', label: 'Chezy-Manning' },
+];
+
+export default function Toolbar() {
+  const network = useNetworkStore((s) => s.network);
+  const updateMeta = useNetworkStore((s) => s.updateMeta);
+  const updateOptions = useNetworkStore((s) => s.updateOptions);
+  const setResults = useNetworkStore((s) => s.setResults);
+  const setSimStatus = useNetworkStore((s) => s.setSimStatus);
+  const simStatus = useNetworkStore((s) => s.simStatus);
+  const results = useNetworkStore((s) => s.results);
+  const timeIndex = useNetworkStore((s) => s.currentTimeIndex);
+  const newNetwork = useNetworkStore((s) => s.newNetwork);
+  const loadNetwork = useNetworkStore((s) => s.loadNetwork);
+  const [busy, setBusy] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const onOpenFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permet de réimporter le même fichier
+    if (!file) return;
+    try {
+      const text = await readFileAsText(file);
+      const lower = file.name.toLowerCase();
+      const net = lower.endsWith('.inp')
+        ? parseInp(text, file.name.replace(/\.inp$/i, ''))
+        : parseProjectFile(text);
+      loadNetwork(net);
+    } catch (err) {
+      alert('Impossible d’ouvrir le fichier : ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const onRun = async () => {
+    const errors = validateNetwork(network);
+    if (errors.length) {
+      setSimStatus('error', errors.join('\n'));
+      alert('Impossible de lancer la simulation :\n\n' + errors.join('\n'));
+      return;
+    }
+    setBusy(true);
+    setSimStatus('running');
+    try {
+      const res = await runSimulation(network);
+      setResults(res);
+      if (res.warnings.length) setSimStatus('done', res.warnings.join('\n'));
+      else setSimStatus('done');
+    } catch (err) {
+      setSimStatus('error', err instanceof Error ? err.message : String(err));
+      alert('Erreur de simulation : ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onExportPdf = async () => {
+    if (!results) {
+      alert('Lancez d’abord une simulation.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const mapImage = (await captureCanvasPng()) ?? undefined;
+      const hasProfile = useNetworkStore.getState().profilePath.length >= 2;
+      const profileImage = hasProfile
+        ? (await captureCanvasPng('.profile-drawer svg')) ?? undefined
+        : undefined;
+      generateReport({ network, results, timeIndex, times: results.times, mapImage, profileImage });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onExportInp = () => {
+    const inp = buildInp(network);
+    const blob = new Blob([inp], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(network.meta.name || 'reseau').replace(/[^\w\-]+/g, '_')}.inp`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <header className="toolbar">
+      <div className="toolbar-brand">
+        <span className="logo-mark">≈</span>
+        <span className="logo-text">HydroNet</span>
+      </div>
+
+      <input
+        className="project-name"
+        value={network.meta.name}
+        onChange={(e) => updateMeta({ name: e.target.value })}
+        title="Nom du projet"
+      />
+
+      <div className="toolbar-group">
+        <button className="btn" onClick={newNetwork} title="Nouveau réseau vierge">
+          Nouveau
+        </button>
+        <button
+          className="btn"
+          onClick={() => fileInput.current?.click()}
+          title="Ouvrir un projet .hydronet ou importer un fichier EPANET .inp"
+        >
+          📂 Ouvrir
+        </button>
+        <button
+          className="btn"
+          onClick={() => saveProjectFile(network)}
+          title="Enregistrer le projet (.hydronet)"
+        >
+          💾 Enregistrer
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".hydronet,.json,.inp"
+          onChange={onOpenFile}
+          style={{ display: 'none' }}
+        />
+        <span className="toolbar-sep-v" />
+        <button
+          className="btn btn-primary"
+          onClick={onRun}
+          disabled={busy || simStatus === 'running'}
+        >
+          {simStatus === 'running' ? '⏳ Calcul…' : '▶ Lancer la simulation'}
+        </button>
+        <button className="btn" onClick={onExportPdf} disabled={busy || !results}>
+          📄 Rapport PDF
+        </button>
+        <button className="btn" onClick={onExportInp} title="Exporter au format EPANET .inp">
+          ⬇ .inp
+        </button>
+      </div>
+
+      <div className="toolbar-spacer" />
+
+      <div className="toolbar-group toolbar-options">
+        <label>
+          Unités
+          <select
+            value={network.options.flowUnits}
+            onChange={(e) => updateOptions({ flowUnits: e.target.value as FlowUnit })}
+          >
+            {FLOW_UNITS.map((u) => (
+              <option key={u} value={u}>
+                {FLOW_UNIT_LABELS[u]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Pertes de charge
+          <select
+            value={network.options.headlossFormula}
+            onChange={(e) => updateOptions({ headlossFormula: e.target.value as HeadlossFormula })}
+          >
+            {HEADLOSS.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </header>
+  );
+}
