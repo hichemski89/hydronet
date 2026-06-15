@@ -10,6 +10,7 @@ import {
   linkDomain,
 } from '../utils/resultsAccess';
 import { pressureStatus, velocityStatus, STATUS_COLOR } from '../utils/compliance';
+import ContextMenu, { MenuItem } from './ContextMenu';
 
 interface Pt {
   x: number;
@@ -23,15 +24,22 @@ export default function NetworkCanvas() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [cursorModel, setCursorModel] = useState<Pt | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
   const network = useNetworkStore((s) => s.network);
   const view = useNetworkStore((s) => s.view);
   const setView = useNetworkStore((s) => s.setView);
   const tool = useNetworkStore((s) => s.tool);
+  const setTool = useNetworkStore((s) => s.setTool);
   const selection = useNetworkStore((s) => s.selection);
   const select = useNetworkStore((s) => s.select);
   const addNode = useNetworkStore((s) => s.addNode);
   const updateNode = useNetworkStore((s) => s.updateNode);
+  const deleteNode = useNetworkStore((s) => s.deleteNode);
+  const deleteLink = useNetworkStore((s) => s.deleteLink);
+  const reverseLink = useNetworkStore((s) => s.reverseLink);
+  const requestFit = useNetworkStore((s) => s.requestFit);
+  const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const startLink = useNetworkStore((s) => s.startLink);
   const addLinkVertex = useNetworkStore((s) => s.addLinkVertex);
   const completeLink = useNetworkStore((s) => s.completeLink);
@@ -131,6 +139,7 @@ export default function NetworkCanvas() {
 
   // --- Gestion des événements ---
   const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button === 2) return; // clic droit géré par le menu contextuel
     const sp = getScreenPoint(e);
     svgRef.current?.setPointerCapture(e.pointerId);
     const target = e.target as Element;
@@ -243,6 +252,45 @@ export default function NetworkCanvas() {
       offsetX: sp.x - mp.x * newScale,
       offsetY: sp.y + mp.y * newScale,
     });
+  };
+
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const target = e.target as Element;
+    const nodeId = target.getAttribute('data-node');
+    const linkId = target.getAttribute('data-link');
+    const rect = svgRef.current!.getBoundingClientRect();
+    const mp = screenToModel(e.clientX - rect.left, e.clientY - rect.top);
+
+    let items: MenuItem[];
+    if (nodeId) {
+      select({ kind: 'node', id: nodeId });
+      items = [
+        { label: 'Démarrer une conduite', icon: '╱', onClick: () => { setTool('pipe'); startLink('pipe', nodeId); } },
+        { label: 'Ajouter au profil', icon: '⛰', onClick: () => addToProfile(nodeId) },
+        { type: 'separator' },
+        { label: 'Dupliquer', icon: '⧉', onClick: () => { select({ kind: 'node', id: nodeId }); duplicateSelection(); } },
+        { label: 'Supprimer', icon: '🗑', danger: true, onClick: () => deleteNode(nodeId) },
+      ];
+    } else if (linkId) {
+      select({ kind: 'link', id: linkId });
+      items = [
+        { label: 'Inverser le sens', icon: '⇄', onClick: () => reverseLink(linkId) },
+        { type: 'separator' },
+        { label: 'Supprimer', icon: '🗑', danger: true, onClick: () => deleteLink(linkId) },
+      ];
+    } else {
+      select(null);
+      items = [
+        { label: 'Ajouter un nœud ici', icon: '●', onClick: () => addNode('junction', mp.x, mp.y) },
+        { label: 'Ajouter un réservoir ici', icon: '▭', onClick: () => addNode('reservoir', mp.x, mp.y) },
+        { label: 'Ajouter un château d’eau ici', icon: '◻', onClick: () => addNode('tank', mp.x, mp.y) },
+        { type: 'separator' },
+        { label: snapToGrid ? 'Désactiver le magnétisme' : 'Activer le magnétisme', icon: '▦', onClick: toggleSnap },
+        { label: 'Recadrer la vue', icon: '⊡', onClick: requestFit },
+      ];
+    }
+    setMenu({ x: e.clientX, y: e.clientY, items });
   };
 
   // Raccourcis clavier
@@ -426,21 +474,27 @@ export default function NetworkCanvas() {
   };
 
   return (
-    <svg
-      ref={svgRef}
-      className="network-canvas"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onWheel={onWheel}
-      style={{ touchAction: 'none' }}
-    >
-      <rect x={0} y={0} width={size.w} height={size.h} fill="transparent" />
-      <g>{Object.keys(network.links).map(renderLink)}</g>
-      {renderProfilePath()}
-      {renderPending()}
-      <g>{Object.values(network.nodes).map(renderNode)}</g>
-    </svg>
+    <>
+      <svg
+        ref={svgRef}
+        className="network-canvas"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onWheel={onWheel}
+        onContextMenu={onContextMenu}
+        style={{ touchAction: 'none' }}
+      >
+        <rect x={0} y={0} width={size.w} height={size.h} fill="transparent" />
+        <g>{Object.keys(network.links).map(renderLink)}</g>
+        {renderProfilePath()}
+        {renderPending()}
+        <g>{Object.values(network.nodes).map(renderNode)}</g>
+      </svg>
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
+      )}
+    </>
   );
 }
 

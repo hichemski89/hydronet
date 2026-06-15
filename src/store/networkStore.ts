@@ -86,6 +86,8 @@ interface NetworkState {
   cancelPendingLink: () => void;
   updateLink: (id: string, patch: Partial<NetworkLink>) => void;
   deleteLink: (id: string) => void;
+  reverseLink: (id: string) => void;
+  requestFit: () => void;
   deleteSelection: () => void;
   updateOptions: (patch: Partial<NetworkOptions>) => void;
   updateCriteria: (patch: Partial<ComplianceCriteria>) => void;
@@ -326,6 +328,26 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       return { network: { ...s.network, links }, selection: null, results: null };
     });
   },
+
+  reverseLink: (id) => {
+    get().commit();
+    set((s) => {
+      const link = s.network.links[id];
+      if (!link) return s;
+      const reversed = {
+        ...link,
+        node1: link.node2,
+        node2: link.node1,
+        vertices: link.vertices ? [...link.vertices].reverse() : undefined,
+      } as NetworkLink;
+      return {
+        network: { ...s.network, links: { ...s.network.links, [id]: reversed } },
+        results: null,
+      };
+    });
+  },
+
+  requestFit: () => set((s) => ({ fitRequest: s.fitRequest + 1 })),
 
   deleteSelection: () => {
     const sel = get().selection;
