@@ -197,6 +197,37 @@ export function buildInp(network: Network): string {
   }
   L.push('');
 
+  // --- Dimensions de la carte (avec marge) ---
+  // Sans marge, EPANET cale la carte sur l'étendue exacte du réseau et ne
+  // permet plus de dézoomer. On ajoute ~15 % de marge autour des éléments.
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const node of Object.values(network.nodes)) {
+    xs.push(node.x);
+    ys.push(node.y);
+  }
+  for (const link of Object.values(network.links)) {
+    for (const v of link.vertices ?? []) {
+      xs.push(v.x);
+      ys.push(v.y);
+    }
+  }
+  if (xs.length > 0) {
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const padX = Math.max((maxX - minX) * 0.15, 50);
+    const padY = Math.max((maxY - minY) * 0.15, 50);
+    L.push('[BACKDROP]');
+    L.push(
+      `DIMENSIONS\t${n(minX - padX)}\t${n(minY - padY)}\t${n(maxX + padX)}\t${n(maxY + padY)}`,
+    );
+    L.push('UNITS\tNone');
+    L.push('OFFSET\t0\t0');
+    L.push('');
+  }
+
   L.push('[END]');
   // Fins de ligne Windows (CRLF) : EPANET Desktop ne reconnaît les sections
   // qu'avec des CRLF. En LF seul, il lit tout le fichier comme une seule ligne
