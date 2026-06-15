@@ -34,6 +34,7 @@ function Field({
         type="number"
         value={Number.isFinite(value) ? value : 0}
         step={step}
+        onFocus={() => useNetworkStore.getState().commit()}
         onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
       />
     </label>
@@ -52,7 +53,12 @@ function TextField({
   return (
     <label className="field">
       <span className="field-label">{label}</span>
-      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} />
+      <input
+        type="text"
+        value={value}
+        onFocus={() => useNetworkStore.getState().commit()}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </label>
   );
 }
@@ -138,6 +144,8 @@ export default function PropertiesPanel() {
           value={network.criteria.minVelocity}
           onChange={(v) => updateCriteria({ minVelocity: v })}
         />
+
+        <ControlsEditor />
       </div>
     );
   }
@@ -216,6 +224,7 @@ export default function PropertiesPanel() {
             <span className="field-label">Mode</span>
             <select
               value={(link as Pump).mode}
+              onFocus={() => useNetworkStore.getState().commit()}
               onChange={(e) => updateLink(link.id, { mode: e.target.value as PumpMode })}
             >
               <option value="head">Courbe (point nominal)</option>
@@ -223,10 +232,7 @@ export default function PropertiesPanel() {
             </select>
           </label>
           {(link as Pump).mode === 'head' ? (
-            <>
-              <Field label="Débit nominal" unit={flowU} value={(link as Pump).designFlow ?? 0} onChange={(v) => updateLink(link.id, { designFlow: v })} />
-              <Field label="Hauteur nominale" unit={lenU} value={(link as Pump).designHead ?? 0} onChange={(v) => updateLink(link.id, { designHead: v })} />
-            </>
+            <PumpCurveEditor pump={link as Pump} flowU={flowU} lenU={lenU} />
           ) : (
             <Field label="Puissance" unit="kW" value={(link as Pump).power ?? 0} onChange={(v) => updateLink(link.id, { power: v })} />
           )}
@@ -240,6 +246,7 @@ export default function PropertiesPanel() {
             <span className="field-label">Type de vanne</span>
             <select
               value={(link as Valve).valveKind}
+              onFocus={() => useNetworkStore.getState().commit()}
               onChange={(e) => updateLink(link.id, { valveKind: e.target.value as ValveKind })}
             >
               <option value="PRV">PRV — réductrice de pression</option>
@@ -264,7 +271,11 @@ function PatternSelect({ value, onChange }: { value?: string; onChange: (v: stri
   return (
     <label className="field">
       <span className="field-label">Courbe de modulation</span>
-      <select value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
+      <select
+        value={value ?? ''}
+        onFocus={() => useNetworkStore.getState().commit()}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      >
         <option value="">— Aucune —</option>
         {Object.keys(patterns).map((id) => (
           <option key={id} value={id}>
@@ -280,12 +291,216 @@ function StatusSelect({ value, onChange }: { value: LinkStatus; onChange: (v: Li
   return (
     <label className="field">
       <span className="field-label">État</span>
-      <select value={value} onChange={(e) => onChange(e.target.value as LinkStatus)}>
+      <select
+        value={value}
+        onFocus={() => useNetworkStore.getState().commit()}
+        onChange={(e) => onChange(e.target.value as LinkStatus)}
+      >
         <option value="OPEN">Ouvert</option>
         <option value="CLOSED">Fermé</option>
         <option value="CV">Clapet anti-retour</option>
       </select>
     </label>
+  );
+}
+
+function ControlsEditor() {
+  const network = useNetworkStore((s) => s.network);
+  const addControl = useNetworkStore((s) => s.addControl);
+  const updateControl = useNetworkStore((s) => s.updateControl);
+  const deleteControl = useNetworkStore((s) => s.deleteControl);
+  const commit = useNetworkStore((s) => s.commit);
+  const controls = network.controls;
+  const links = Object.values(network.links);
+  const nodes = Object.values(network.nodes).filter((nd) => nd.type !== 'junction');
+
+  return (
+    <>
+      <h3 className="props-title" style={{ marginTop: 18 }}>
+        Contrôles automatiques
+      </h3>
+      <p className="hint">
+        Pilotent l’ouverture/fermeture d’un lien (pompe, vanne…) selon le niveau d’un réservoir ou
+        l’heure.
+      </p>
+      {controls.length === 0 && <p className="hint" style={{ marginTop: 0 }}>Aucun contrôle défini.</p>}
+
+      {controls.map((c) => (
+        <div className="control-card" key={c.id}>
+          <div className="control-row">
+            <select
+              value={c.linkId}
+              onFocus={commit}
+              onChange={(e) => updateControl(c.id, { linkId: e.target.value })}
+            >
+              {links.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.id} ({l.type})
+                </option>
+              ))}
+            </select>
+            <select
+              value={typeof c.setting === 'number' ? 'value' : c.setting}
+              onFocus={commit}
+              onChange={(e) =>
+                updateControl(c.id, {
+                  setting: e.target.value === 'value' ? 1 : (e.target.value as 'OPEN' | 'CLOSED'),
+                })
+              }
+            >
+              <option value="OPEN">Ouvrir</option>
+              <option value="CLOSED">Fermer</option>
+              <option value="value">Consigne…</option>
+            </select>
+          </div>
+          {typeof c.setting === 'number' && (
+            <input
+              type="number"
+              className="control-setting"
+              value={c.setting}
+              step={0.1}
+              onFocus={commit}
+              onChange={(e) => updateControl(c.id, { setting: parseFloat(e.target.value) || 0 })}
+            />
+          )}
+          <div className="control-row">
+            <select
+              value={c.conditionType}
+              onFocus={commit}
+              onChange={(e) =>
+                updateControl(c.id, { conditionType: e.target.value as 'node-level' | 'time' })
+              }
+            >
+              <option value="node-level">Si niveau nœud</option>
+              <option value="time">À l’heure</option>
+            </select>
+            {c.conditionType === 'node-level' ? (
+              <>
+                <select
+                  value={c.nodeId ?? ''}
+                  onFocus={commit}
+                  onChange={(e) => updateControl(c.id, { nodeId: e.target.value })}
+                >
+                  {nodes.map((nd) => (
+                    <option key={nd.id} value={nd.id}>
+                      {nd.id}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={c.operator ?? 'above'}
+                  onFocus={commit}
+                  onChange={(e) => updateControl(c.id, { operator: e.target.value as 'above' | 'below' })}
+                >
+                  <option value="above">au-dessus de</option>
+                  <option value="below">en-dessous de</option>
+                </select>
+              </>
+            ) : null}
+          </div>
+          <div className="control-row">
+            <input
+              type="number"
+              value={c.value}
+              step={0.5}
+              onFocus={commit}
+              onChange={(e) => updateControl(c.id, { value: parseFloat(e.target.value) || 0 })}
+            />
+            <span className="control-unit">{c.conditionType === 'time' ? 'h' : 'm'}</span>
+            <button className="curve-del" title="Supprimer" onClick={() => deleteControl(c.id)}>
+              ×
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <button
+        className="btn btn-sm"
+        style={{ width: '100%', marginTop: 6 }}
+        onClick={addControl}
+        disabled={links.length === 0}
+      >
+        + Ajouter un contrôle
+      </button>
+    </>
+  );
+}
+
+function PumpCurveEditor({ pump, flowU, lenU }: { pump: Pump; flowU: string; lenU: string }) {
+  const updateLink = useNetworkStore((s) => s.updateLink);
+  const commit = useNetworkStore((s) => s.commit);
+  const curve = pump.curve ?? [];
+
+  if (curve.length === 0) {
+    return (
+      <>
+        <Field label="Débit nominal" unit={flowU} value={pump.designFlow ?? 0} onChange={(v) => updateLink(pump.id, { designFlow: v })} />
+        <Field label="Hauteur nominale" unit={lenU} value={pump.designHead ?? 0} onChange={(v) => updateLink(pump.id, { designHead: v })} />
+        <button
+          className="btn btn-sm"
+          style={{ width: '100%', marginBottom: 8 }}
+          onClick={() => {
+            commit();
+            const q = pump.designFlow ?? 50;
+            const h = pump.designHead ?? 40;
+            updateLink(pump.id, {
+              curve: [
+                { flow: 0, head: Math.round(h * 1.33) },
+                { flow: q, head: h },
+                { flow: Math.round(q * 2), head: 0 },
+              ],
+            });
+          }}
+        >
+          Définir une courbe multi-points
+        </button>
+      </>
+    );
+  }
+
+  const setPoint = (i: number, key: 'flow' | 'head', v: number) => {
+    const next = curve.map((p, idx) => (idx === i ? { ...p, [key]: v } : p));
+    updateLink(pump.id, { curve: next });
+  };
+
+  return (
+    <div className="curve-editor">
+      <div className="curve-head">
+        <span className="field-label">Courbe caractéristique</span>
+        <button className="btn btn-sm" onClick={() => { commit(); updateLink(pump.id, { curve: undefined }); }}>
+          Point unique
+        </button>
+      </div>
+      <div className="curve-cols">
+        <span>Débit ({flowU})</span>
+        <span>Hauteur ({lenU})</span>
+        <span />
+      </div>
+      {curve.map((p, i) => (
+        <div className="curve-row" key={i}>
+          <input type="number" value={p.flow} onFocus={commit} onChange={(e) => setPoint(i, 'flow', parseFloat(e.target.value) || 0)} />
+          <input type="number" value={p.head} onFocus={commit} onChange={(e) => setPoint(i, 'head', parseFloat(e.target.value) || 0)} />
+          <button
+            className="curve-del"
+            title="Supprimer le point"
+            onClick={() => { commit(); updateLink(pump.id, { curve: curve.filter((_, idx) => idx !== i) }); }}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        className="btn btn-sm"
+        style={{ width: '100%', marginTop: 6 }}
+        onClick={() => {
+          commit();
+          const last = curve[curve.length - 1] ?? { flow: 0, head: 0 };
+          updateLink(pump.id, { curve: [...curve, { flow: last.flow + 20, head: Math.max(0, last.head - 10) }] });
+        }}
+      >
+        + Ajouter un point
+      </button>
+    </div>
   );
 }
 

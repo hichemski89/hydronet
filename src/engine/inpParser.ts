@@ -11,6 +11,7 @@ import {
   ValveKind,
   LinkStatus,
   Pattern,
+  SimpleControl,
   FlowUnit,
   HeadlossFormula,
   DEFAULT_OPTIONS,
@@ -47,8 +48,10 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
   const vertices: Record<string, { x: number; y: number }[]> = {};
   const curves: Record<string, { x: number; y: number }[]> = {};
   const demandOverride: Record<string, { demand: number; pattern?: string }> = {};
+  const controls: SimpleControl[] = [];
   const options = { ...DEFAULT_OPTIONS };
   let title = '';
+  let controlCounter = 0;
 
   // Tampon brut des pompes (les courbes peuvent être définies après).
   const pumpRaw: { id: string; n1: string; n2: string; params: string[] }[] = [];
@@ -174,6 +177,36 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
         demandOverride[id] = { demand: num(demand), pattern: pattern || undefined };
         break;
       }
+      case 'CONTROLS': {
+        // LINK <id> <OPEN|CLOSED|valeur> IF NODE <node> ABOVE|BELOW <val>
+        // LINK <id> <...> AT TIME <heures>
+        if (tk[0]?.toUpperCase() !== 'LINK') break;
+        const linkId = tk[1];
+        const setRaw = tk[2]?.toUpperCase();
+        const setting: SimpleControl['setting'] =
+          setRaw === 'OPEN' ? 'OPEN' : setRaw === 'CLOSED' ? 'CLOSED' : num(tk[2]);
+        const kw3 = tk[3]?.toUpperCase();
+        if (kw3 === 'IF' && tk[4]?.toUpperCase() === 'NODE') {
+          controls.push({
+            id: `C${++controlCounter}`,
+            linkId,
+            setting,
+            conditionType: 'node-level',
+            nodeId: tk[5],
+            operator: tk[6]?.toUpperCase() === 'ABOVE' ? 'above' : 'below',
+            value: num(tk[7]),
+          });
+        } else if (kw3 === 'AT' && tk[4]?.toUpperCase() === 'TIME') {
+          controls.push({
+            id: `C${++controlCounter}`,
+            linkId,
+            setting,
+            conditionType: 'time',
+            value: clockToSec(tk[5]) / 3600,
+          });
+        }
+        break;
+      }
       case 'OPTIONS': {
         const key = tk[0].toUpperCase();
         if (key === 'UNITS') options.flowUnits = (tk[1]?.toUpperCase() as FlowUnit) || 'LPS';
@@ -225,7 +258,8 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
         pump.mode = 'head';
         const curve = curves[val];
         if (curve && curve.length) {
-          // Point milieu de la courbe comme point nominal représentatif.
+          pump.curve = curve.map((p) => ({ flow: p.x, head: p.y }));
+          // Point milieu comme point nominal représentatif (affichage).
           const mid = curve[Math.floor(curve.length / 2)];
           pump.designFlow = mid.x;
           pump.designHead = mid.y;
@@ -276,6 +310,7 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
     patterns,
     options,
     criteria: { ...DEFAULT_CRITERIA },
+    controls,
   };
 }
 

@@ -64,14 +64,21 @@ export interface Pipe extends BaseLink {
   status: LinkStatus;
 }
 
+export interface PumpCurvePoint {
+  flow: number;
+  head: number;
+}
+
 export interface Pump extends BaseLink {
   type: 'pump';
   mode: PumpMode;
   /** Puissance constante (kW) si mode = 'power'. */
   power?: number;
-  /** Point nominal (débit, hauteur) si mode = 'head'. */
+  /** Point nominal (débit, hauteur) si mode = 'head' sans courbe détaillée. */
   designFlow?: number;
   designHead?: number;
+  /** Courbe caractéristique multi-points (prioritaire sur designFlow/Head si renseignée). */
+  curve?: PumpCurvePoint[];
   status: LinkStatus;
   speed?: number;
 }
@@ -110,6 +117,23 @@ export interface Pattern {
   multipliers: number[];
 }
 
+/** Contrôle simple : agit sur un lien selon le niveau d'un nœud ou l'heure. */
+export interface SimpleControl {
+  id: string;
+  /** Lien piloté (pompe ou vanne, voire conduite). */
+  linkId: string;
+  /** État/consigne appliqué : OPEN, CLOSED, ou valeur numérique (vitesse/consigne). */
+  setting: 'OPEN' | 'CLOSED' | number;
+  /** Type de condition. */
+  conditionType: 'node-level' | 'time';
+  /** Nœud surveillé (si node-level). */
+  nodeId?: string;
+  /** Sens de comparaison (si node-level). */
+  operator?: 'above' | 'below';
+  /** Niveau/pression seuil (node-level) ou heure en h (time). */
+  value: number;
+}
+
 /** Critères de conformité réglementaire pour l'évaluation des résultats. */
 export interface ComplianceCriteria {
   /** Pression de service minimale (dans l'unité de pression du modèle). */
@@ -143,6 +167,7 @@ export interface Network {
   patterns: Record<string, Pattern>;
   options: NetworkOptions;
   criteria: ComplianceCriteria;
+  controls: SimpleControl[];
 }
 
 // --- Résultats de simulation ---

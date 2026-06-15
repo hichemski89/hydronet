@@ -10,10 +10,12 @@ import {
   SimulationResults,
   NetworkOptions,
   ComplianceCriteria,
+  SimpleControl,
   DEFAULT_OPTIONS,
   DEFAULT_CRITERIA,
 } from '../types/network';
 import { sampleNetwork } from '../utils/sampleNetwork';
+import { loadPersistedNetwork, savePersistedNetwork } from './persist';
 
 export type Tool =
   | 'select'
@@ -62,6 +64,12 @@ interface NetworkState {
   colorMode: 'metric' | 'compliance';
   /** Tracé du profil en long : suite ordonnée d'identifiants de nœuds. */
   profilePath: string[];
+  /** Historique pour annuler/rétablir. */
+  past: Network[];
+  future: Network[];
+  /** Magnétisme sur grille lors de l'ajout/déplacement des nœuds. */
+  snapToGrid: boolean;
+  gridSize: number;
   /** Incrémenté pour demander un recadrage de la vue (chargement d'un réseau). */
   fitRequest: number;
 
@@ -82,6 +90,9 @@ interface NetworkState {
   updateOptions: (patch: Partial<NetworkOptions>) => void;
   updateCriteria: (patch: Partial<ComplianceCriteria>) => void;
   updateMeta: (patch: Partial<Network['meta']>) => void;
+  addControl: () => void;
+  updateControl: (id: string, patch: Partial<SimpleControl>) => void;
+  deleteControl: (id: string) => void;
   setResults: (results: SimulationResults | null) => void;
   setSimStatus: (status: NetworkState['simStatus'], error?: string | null) => void;
   setCurrentTimeIndex: (i: number) => void;
@@ -91,6 +102,12 @@ interface NetworkState {
   setColorMode: (m: 'metric' | 'compliance') => void;
   addToProfile: (nodeId: string) => void;
   clearProfile: () => void;
+  /** Enregistre l'état courant dans l'historique (avant une modification). */
+  commit: () => void;
+  undo: () => void;
+  redo: () => void;
+  toggleSnap: () => void;
+  duplicateSelection: () => void;
   loadNetwork: (network: Network) => void;
   newNetwork: () => void;
 }
@@ -108,6 +125,7 @@ function emptyNetwork(): Network {
     patterns: {},
     options: { ...DEFAULT_OPTIONS },
     criteria: { ...DEFAULT_CRITERIA },
+    controls: [],
   };
 }
 
@@ -181,11 +199,18 @@ function defaultLink(
   }
 }
 
+const HISTORY_LIMIT = 50;
+
 let nodeCounter = 1000;
 let linkCounter = 1000;
 
+/** Arrondit une valeur au pas de grille si le magnétisme est actif. */
+function snapValue(v: number, size: number, on: boolean): number {
+  return on ? Math.round(v / size) * size : v;
+}
+
 export const useNetworkStore = create<NetworkState>((set, get) => ({
-  network: sampleNetwork(),
+  network: loadPersistedNetwork() ?? sampleNetwork(),
   tool: 'select',
   selection: null,
   view: { scale: 1, offsetX: 0, offsetY: 0 },
@@ -199,6 +224,10 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   linkMetric: 'flow',
   colorMode: 'metric',
   profilePath: [],
+  past: [],
+  future: [],
+  snapToGrid: false,
+  gridSize: 20,
   fitRequest: 0,
 
   setTool: (tool) => set({ tool, pendingLink: null }),
@@ -206,9 +235,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   select: (selection) => set({ selection }),
 
   addNode: (type, x, y) => {
-    const id = defaultNode(type, x, y, ++nodeCounter).id;
+    get().commit();
+    const s0 = get();
+    const sx = snapValue(x, s0.gridSize, s0.snapToGrid);
+    const sy = snapValue(y, s0.gridSize, s0.snapToGrid);
+    const node = defaultNode(type, sx, sy, ++nodeCounter);
     set((s) => {
-      const node = defaultNode(type, x, y, nodeCounter);
       node.id = uniqueNodeId(s.network, node.id);
       return {
         network: { ...s.network, nodes: { ...s.network.nodes, [node.id]: node } },
@@ -216,7 +248,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         results: null,
       };
     });
-    return id;
+    return node.id;
   },
 
   updateNode: (id, patch) =>
@@ -231,7 +263,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       };
     }),
 
-  deleteNode: (id) =>
+  deleteNode: (id) => {
+    get().commit();
     set((s) => {
       const nodes = { ...s.network.nodes };
       delete nodes[id];
@@ -244,7 +277,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         selection: null,
         results: null,
       };
-    }),
+    });
+  },
 
   startLink: (type, node1) => set({ pendingLink: { type, node1, vertices: [] } }),
   addLinkVertex: (x, y) =>
@@ -254,7 +288,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         : s,
     ),
 
-  completeLink: (node2) =>
+  completeLink: (node2) => {
+    if (get().pendingLink) get().commit();
     set((s) => {
       const p = s.pendingLink;
       if (!p || p.node1 === node2) return { pendingLink: null };
@@ -266,7 +301,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         selection: { kind: 'link', id: link.id },
         results: null,
       };
-    }),
+    });
+  },
 
   cancelPendingLink: () => set({ pendingLink: null }),
 
@@ -282,12 +318,14 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       };
     }),
 
-  deleteLink: (id) =>
+  deleteLink: (id) => {
+    get().commit();
     set((s) => {
       const links = { ...s.network.links };
       delete links[id];
       return { network: { ...s.network, links }, selection: null, results: null };
-    }),
+    });
+  },
 
   deleteSelection: () => {
     const sel = get().selection;
@@ -308,6 +346,39 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   updateMeta: (patch) =>
     set((s) => ({ network: { ...s.network, meta: { ...s.network.meta, ...patch } } })),
 
+  addControl: () => {
+    const { network } = get();
+    const firstLink = Object.keys(network.links)[0];
+    const firstTank = Object.values(network.nodes).find((nd) => nd.type === 'tank');
+    if (!firstLink) return;
+    get().commit();
+    const ctrl: SimpleControl = {
+      id: `C${Date.now().toString(36)}`,
+      linkId: firstLink,
+      setting: 'CLOSED',
+      conditionType: firstTank ? 'node-level' : 'time',
+      nodeId: firstTank?.id,
+      operator: 'above',
+      value: firstTank ? (firstTank as { maxLevel?: number }).maxLevel ?? 0 : 6,
+    };
+    set((s) => ({ network: { ...s.network, controls: [...s.network.controls, ctrl] } }));
+  },
+
+  updateControl: (id, patch) =>
+    set((s) => ({
+      network: {
+        ...s.network,
+        controls: s.network.controls.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      },
+    })),
+
+  deleteControl: (id) => {
+    get().commit();
+    set((s) => ({
+      network: { ...s.network, controls: s.network.controls.filter((c) => c.id !== id) },
+    }));
+  },
+
   setResults: (results) =>
     set({ results, currentTimeIndex: 0, simStatus: results ? 'done' : 'idle' }),
   setSimStatus: (simStatus, simError = null) => set({ simStatus, simError }),
@@ -324,6 +395,55 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     }),
   clearProfile: () => set({ profilePath: [] }),
 
+  commit: () =>
+    set((s) => ({ past: [...s.past, s.network].slice(-HISTORY_LIMIT), future: [] })),
+
+  undo: () =>
+    set((s) => {
+      if (!s.past.length) return s;
+      const previous = s.past[s.past.length - 1];
+      return {
+        network: previous,
+        past: s.past.slice(0, -1),
+        future: [s.network, ...s.future].slice(0, HISTORY_LIMIT),
+        results: null,
+        selection: null,
+        simStatus: 'idle',
+      };
+    }),
+
+  redo: () =>
+    set((s) => {
+      if (!s.future.length) return s;
+      const next = s.future[0];
+      return {
+        network: next,
+        past: [...s.past, s.network].slice(-HISTORY_LIMIT),
+        future: s.future.slice(1),
+        results: null,
+        selection: null,
+        simStatus: 'idle',
+      };
+    }),
+
+  toggleSnap: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
+
+  duplicateSelection: () => {
+    const { selection, network } = get();
+    if (!selection || selection.kind !== 'node') return;
+    const node = network.nodes[selection.id];
+    if (!node) return;
+    get().commit();
+    set((s) => {
+      const copy = { ...node, id: uniqueNodeId(s.network, `${node.id}_copie`), x: node.x + 30, y: node.y - 30 } as NetworkNode;
+      return {
+        network: { ...s.network, nodes: { ...s.network.nodes, [copy.id]: copy } },
+        selection: { kind: 'node', id: copy.id },
+        results: null,
+      };
+    });
+  },
+
   loadNetwork: (network) =>
     set((s) => ({
       network,
@@ -332,6 +452,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       currentTimeIndex: 0,
       simStatus: 'idle',
       profilePath: [],
+      past: [],
+      future: [],
       fitRequest: s.fitRequest + 1,
     })),
   newNetwork: () =>
@@ -342,6 +464,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       currentTimeIndex: 0,
       simStatus: 'idle',
       profilePath: [],
+      past: [],
+      future: [],
       fitRequest: s.fitRequest + 1,
     })),
 }));
@@ -364,3 +488,13 @@ function uniqueLinkId(network: Network, base: string): string {
 export function genId(prefix: string): string {
   return `${prefix}${nanoid(6)}`;
 }
+
+// --- Sauvegarde automatique dans le navigateur (anti-rebond) ---
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSavedNetwork = useNetworkStore.getState().network;
+useNetworkStore.subscribe((state) => {
+  if (state.network === lastSavedNetwork) return;
+  lastSavedNetwork = state.network;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => savePersistedNetwork(lastSavedNetwork), 600);
+});

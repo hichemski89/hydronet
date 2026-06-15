@@ -38,6 +38,12 @@ export default function NetworkCanvas() {
   const cancelPendingLink = useNetworkStore((s) => s.cancelPendingLink);
   const pendingLink = useNetworkStore((s) => s.pendingLink);
   const deleteSelection = useNetworkStore((s) => s.deleteSelection);
+  const commit = useNetworkStore((s) => s.commit);
+  const undo = useNetworkStore((s) => s.undo);
+  const redo = useNetworkStore((s) => s.redo);
+  const duplicateSelection = useNetworkStore((s) => s.duplicateSelection);
+  const snapToGrid = useNetworkStore((s) => s.snapToGrid);
+  const gridSize = useNetworkStore((s) => s.gridSize);
   const results = useNetworkStore((s) => s.results);
   const showOverlay = useNetworkStore((s) => s.showResultsOverlay);
   const timeIndex = useNetworkStore((s) => s.currentTimeIndex);
@@ -155,8 +161,12 @@ export default function NetworkCanvas() {
 
     if (it.mode === 'maybe' && Math.hypot(dx, dy) > MOVE_THRESHOLD) {
       // Démarre un déplacement de nœud (outil sélection) ou un pan
-      if (it.nodeId && tool === 'select') it.mode = 'dragNode';
-      else it.mode = 'pan';
+      if (it.nodeId && tool === 'select') {
+        it.mode = 'dragNode';
+        commit(); // un seul point d'annulation pour tout le déplacement
+      } else {
+        it.mode = 'pan';
+      }
       it.moved = true;
     }
 
@@ -168,7 +178,9 @@ export default function NetworkCanvas() {
       it.moved = true;
     } else if (it.mode === 'dragNode' && it.nodeId) {
       const mp = screenToModel(sp.x, sp.y);
-      updateNode(it.nodeId, { x: mp.x, y: mp.y });
+      const nx = snapToGrid ? Math.round(mp.x / gridSize) * gridSize : mp.x;
+      const ny = snapToGrid ? Math.round(mp.y / gridSize) * gridSize : mp.y;
+      updateNode(it.nodeId, { x: nx, y: ny });
       it.lastScreen = sp;
     }
   };
@@ -237,13 +249,31 @@ export default function NetworkCanvas() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (ctrl && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if (ctrl && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        duplicateSelection();
+        return;
+      }
+      if (typing) return;
       if (e.key === 'Escape') cancelPendingLink();
       if (e.key === 'Delete' || e.key === 'Backspace') deleteSelection();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cancelPendingLink, deleteSelection]);
+  }, [cancelPendingLink, deleteSelection, undo, redo, duplicateSelection]);
 
   // --- Rendu ---
   const renderLink = (linkId: string) => {

@@ -29,6 +29,7 @@ export function parseProjectFile(text: string): Network {
   // Garantit la présence des champs facultatifs (compatibilité ascendante).
   net.patterns ??= {};
   net.criteria ??= { ...DEFAULT_CRITERIA };
+  net.controls ??= [];
   net.meta ??= { name: 'Projet importé', createdAt: new Date().toISOString() };
   return net as Network;
 }

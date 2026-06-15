@@ -80,8 +80,8 @@ export function buildInp(network: Network): string {
   }
   L.push('');
 
-  // Courbes des pompes en mode "head"
-  const curves: string[] = [];
+  // Courbes des pompes en mode "head" (un ou plusieurs points)
+  const curveLines: string[] = [];
   L.push('[PUMPS]');
   L.push(';ID\tNode1\tNode2\tParameters');
   for (const pu of pumps) {
@@ -89,9 +89,11 @@ export function buildInp(network: Network): string {
       L.push(`${pu.id}\t${pu.node1}\t${pu.node2}\tPOWER ${n(pu.power)}`);
     } else {
       const curveId = `C_${pu.id}`;
-      const q = pu.designFlow ?? 50;
-      const h = pu.designHead ?? 40;
-      curves.push(`${curveId}\t${n(q)}\t${n(h)}`);
+      const pts =
+        pu.curve && pu.curve.length
+          ? pu.curve
+          : [{ flow: pu.designFlow ?? 50, head: pu.designHead ?? 40 }];
+      for (const p of pts) curveLines.push(`${curveId}\t${n(p.flow)}\t${n(p.head)}`);
       let line = `${pu.id}\t${pu.node1}\t${pu.node2}\tHEAD ${curveId}`;
       if (pu.speed != null && pu.speed !== 1) line += ` SPEED ${n(pu.speed)}`;
       L.push(line);
@@ -123,8 +125,23 @@ export function buildInp(network: Network): string {
   L.push('');
 
   L.push('[CURVES]');
-  L.push(';ID\tX\tY');
-  for (const c of curves) L.push(`;PUMP: courbe à un point\n${c}`);
+  L.push(';ID\tFlow\tHead');
+  for (const c of curveLines) L.push(c);
+  L.push('');
+
+  // --- Contrôles simples ---
+  L.push('[CONTROLS]');
+  for (const ctrl of network.controls ?? []) {
+    if (!network.links[ctrl.linkId]) continue;
+    const set =
+      ctrl.setting === 'OPEN' ? 'OPEN' : ctrl.setting === 'CLOSED' ? 'CLOSED' : n(ctrl.setting);
+    if (ctrl.conditionType === 'node-level' && ctrl.nodeId && network.nodes[ctrl.nodeId]) {
+      const op = ctrl.operator === 'above' ? 'ABOVE' : 'BELOW';
+      L.push(`LINK ${ctrl.linkId} ${set} IF NODE ${ctrl.nodeId} ${op} ${n(ctrl.value)}`);
+    } else if (ctrl.conditionType === 'time') {
+      L.push(`LINK ${ctrl.linkId} ${set} AT TIME ${n(ctrl.value)}`);
+    }
+  }
   L.push('');
 
   // --- Options & temps ---

@@ -27,6 +27,12 @@ export default function Toolbar() {
   const timeIndex = useNetworkStore((s) => s.currentTimeIndex);
   const newNetwork = useNetworkStore((s) => s.newNetwork);
   const loadNetwork = useNetworkStore((s) => s.loadNetwork);
+  const undo = useNetworkStore((s) => s.undo);
+  const redo = useNetworkStore((s) => s.redo);
+  const canUndo = useNetworkStore((s) => s.past.length > 0);
+  const canRedo = useNetworkStore((s) => s.future.length > 0);
+  const snapToGrid = useNetworkStore((s) => s.snapToGrid);
+  const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -136,6 +142,20 @@ export default function Toolbar() {
           onChange={onOpenFile}
           style={{ display: 'none' }}
         />
+        <span className="toolbar-sep-v" />
+        <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="Annuler (Ctrl+Z)">
+          ↶
+        </button>
+        <button className="btn btn-icon" onClick={redo} disabled={!canRedo} title="Rétablir (Ctrl+Y)">
+          ↷
+        </button>
+        <button
+          className={`btn btn-icon ${snapToGrid ? 'btn-toggle-on' : ''}`}
+          onClick={toggleSnap}
+          title="Magnétisme sur grille"
+        >
+          ▦
+        </button>
         <span className="toolbar-sep-v" />
         <button
           className="btn btn-primary"

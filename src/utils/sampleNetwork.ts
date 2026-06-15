@@ -14,6 +14,7 @@ export function sampleNetwork(): Network {
     },
     options: { ...DEFAULT_OPTIONS },
     criteria: { ...DEFAULT_CRITERIA },
+    controls: [],
     patterns: {
       P1: {
         id: 'P1',
