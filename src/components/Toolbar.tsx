@@ -3,7 +3,6 @@ import { useNetworkStore } from '../store/networkStore';
 import { runSimulation, validateNetwork } from '../engine/epanetRunner';
 import { buildInp } from '../engine/inpBuilder';
 import { parseInp } from '../engine/inpParser';
-import { parseDxf } from '../engine/dxfImport';
 import { saveProjectFile, parseProjectFile, readFileAsText } from '../engine/projectIO';
 import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
@@ -40,7 +39,7 @@ export default function Toolbar() {
   const timeIndex = useNetworkStore((s) => s.currentTimeIndex);
   const newNetwork = useNetworkStore((s) => s.newNetwork);
   const loadNetwork = useNetworkStore((s) => s.loadNetwork);
-  const setBackdrop = useNetworkStore((s) => s.setBackdrop);
+  const setBackdropPanelOpen = useNetworkStore((s) => s.setBackdropPanelOpen);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -49,20 +48,6 @@ export default function Toolbar() {
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const dxfInput = useRef<HTMLInputElement>(null);
-
-  const onImportDxf = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    try {
-      const text = await readFileAsText(file);
-      const backdrop = parseDxf(text, file.name);
-      setBackdrop(backdrop);
-    } catch (err) {
-      alert('Import DXF impossible : ' + (err instanceof Error ? err.message : String(err)));
-    }
-  };
 
   const onOpenFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -172,18 +157,11 @@ export default function Toolbar() {
         />
         <button
           className="btn"
-          onClick={() => dxfInput.current?.click()}
-          title="Importer un fond de plan DAO (fichier DXF)"
+          onClick={() => setBackdropPanelOpen(true)}
+          title="Fond de plan DAO : import DXF, calques, échelle…"
         >
-          <PlanIcon size={16} /> Fond DXF
+          <PlanIcon size={16} /> Fond de plan
         </button>
-        <input
-          ref={dxfInput}
-          type="file"
-          accept=".dxf"
-          onChange={onImportDxf}
-          style={{ display: 'none' }}
-        />
         <span className="toolbar-sep-v" />
         <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="Annuler (Ctrl+Z)">
           <UndoIcon size={18} />

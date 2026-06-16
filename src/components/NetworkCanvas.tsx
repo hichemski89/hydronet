@@ -106,8 +106,9 @@ export default function NetworkCanvas() {
       ys.push(nd.y);
     }
     if (backdrop) {
-      xs.push(backdrop.bounds.minX, backdrop.bounds.maxX);
-      ys.push(backdrop.bounds.minY, backdrop.bounds.maxY);
+      // Bornes « utiles » : ignore les blocs aberrants éloignés
+      xs.push(backdrop.contentBounds.minX, backdrop.contentBounds.maxX);
+      ys.push(backdrop.contentBounds.minY, backdrop.contentBounds.maxY);
     }
     if (xs.length === 0) {
       // Réseau vierge : vue centrée par défaut.
@@ -155,21 +156,29 @@ export default function NetworkCanvas() {
     if (!backdrop) return null;
     return (
       <>
-        <path d={backdrop.pathData} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        {(backdrop.circles ?? []).map((c, i) => (
-          <circle key={`c${i}`} cx={c.cx} cy={c.cy} r={c.r} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        ))}
-        {(backdrop.texts ?? []).map((t, i) => (
-          <text
-            key={`t${i}`}
-            transform={`translate(${t.x} ${t.y}) scale(1 -1) rotate(${-t.rotation})`}
-            fontSize={t.height}
-            fill="#475569"
-            style={{ userSelect: 'none' }}
-          >
-            {t.text}
-          </text>
-        ))}
+        {backdrop.layers.map((layer) =>
+          layer.visible ? (
+            <g key={layer.name}>
+              {layer.pathData && (
+                <path d={layer.pathData} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              )}
+              {layer.circles.map((c, i) => (
+                <circle key={`c${i}`} cx={c.cx} cy={c.cy} r={c.r} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+              ))}
+              {layer.texts.map((t, i) => (
+                <text
+                  key={`t${i}`}
+                  transform={`translate(${t.x} ${t.y}) scale(1 -1) rotate(${-t.rotation})`}
+                  fontSize={t.height}
+                  fill="#475569"
+                  style={{ userSelect: 'none' }}
+                >
+                  {t.text}
+                </text>
+              ))}
+            </g>
+          ) : null,
+        )}
       </>
     );
   }, [backdrop]);

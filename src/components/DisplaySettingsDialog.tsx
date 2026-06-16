@@ -88,14 +88,6 @@ export default function DisplaySettingsDialog() {
   const setOpen = useNetworkStore((s) => s.setDisplayDialogOpen);
   const display = useNetworkStore((s) => s.display);
   const update = useNetworkStore((s) => s.updateDisplay);
-  const backdrop = useNetworkStore((s) => s.backdrop);
-  const updateBackdrop = useNetworkStore((s) => s.updateBackdrop);
-  const clearBackdrop = useNetworkStore((s) => s.clearBackdrop);
-  const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
-  const setMetersPerUnit = useNetworkStore((s) => s.setMetersPerUnit);
-  const autoLength = useNetworkStore((s) => s.autoLength);
-  const setAutoLength = useNetworkStore((s) => s.setAutoLength);
-  const recomputeLengths = useNetworkStore((s) => s.recomputeLengths);
 
   useEffect(() => {
     if (!open) return;
@@ -135,41 +127,6 @@ export default function DisplaySettingsDialog() {
           <Toggle label="Épaisseur des conduites selon le diamètre" checked={display.widthByDiameter} onChange={(v) => set({ widthByDiameter: v })} />
           <Slider label="Taille des nœuds" value={display.nodeSize} min={4} max={16} step={1} suffix=" px" onChange={(v) => set({ nodeSize: v })} />
           <Slider label="Épaisseur des conduites" value={display.linkWidth} min={1} max={8} step={0.5} suffix=" px" onChange={(v) => set({ linkWidth: v })} />
-
-          <div className="disp-section">Fond de plan (DAO)</div>
-          {backdrop ? (
-            <>
-              <div className="backdrop-info">
-                📐 {backdrop.name} — {backdrop.entityCount} entité(s)
-              </div>
-              <Toggle label="Afficher le fond de plan" checked={backdrop.visible} onChange={(v) => updateBackdrop({ visible: v })} />
-              <Slider label="Opacité du fond" value={backdrop.opacity} min={0.1} max={1} step={0.05} onChange={(v) => updateBackdrop({ opacity: v })} />
-              <label className="disp-color" style={{ alignItems: 'center' }}>
-                <span>Échelle (mètres par unité)</span>
-                <input
-                  type="number"
-                  step="0.001"
-                  value={metersPerUnit}
-                  onChange={(e) => setMetersPerUnit(parseFloat(e.target.value) || 1)}
-                  style={{ width: 90, padding: '5px 7px', border: '1px solid var(--border)', borderRadius: 6 }}
-                />
-              </label>
-              <Toggle label="Longueurs auto depuis le tracé" checked={autoLength} onChange={setAutoLength} />
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn btn-sm" style={{ flex: 1 }} onClick={recomputeLengths}>
-                  Recalculer les longueurs
-                </button>
-                <button className="btn btn-sm btn-danger" onClick={clearBackdrop}>
-                  Retirer le fond
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="hint" style={{ marginTop: 0 }}>
-              Importez un fichier <strong>DXF</strong> via le bouton « Fond DXF » de la barre d’outils
-              pour l’utiliser comme calque et tracer les conduites à l’échelle réelle.
-            </p>
-          )}
         </div>
 
         <div className="modal-footer">

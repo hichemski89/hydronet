@@ -112,6 +112,8 @@ interface NetworkState {
   displayDialogOpen: boolean;
   /** Fond de plan DAO (DXF) importé, ou null. */
   backdrop: Backdrop | null;
+  /** Panneau « Fond de plan » ouvert. */
+  backdropPanelOpen: boolean;
   /** Échelle : mètres par unité de dessin (pour les longueurs réelles). */
   metersPerUnit: number;
   /** Calcule automatiquement la longueur des conduites depuis le tracé. */
@@ -165,6 +167,9 @@ interface NetworkState {
   setBackdrop: (backdrop: Backdrop) => void;
   clearBackdrop: () => void;
   updateBackdrop: (patch: Partial<Pick<Backdrop, 'visible' | 'opacity'>>) => void;
+  toggleLayer: (name: string) => void;
+  setAllLayers: (visible: boolean) => void;
+  setBackdropPanelOpen: (open: boolean) => void;
   setMetersPerUnit: (v: number) => void;
   setAutoLength: (on: boolean) => void;
   recomputeLengths: () => void;
@@ -299,7 +304,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   gridSize: 20,
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
-  backdrop: persistedCad?.backdrop ?? null,
+  backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
+  backdropPanelOpen: false,
   metersPerUnit: persistedCad?.metersPerUnit ?? 1,
   autoLength: persistedCad?.autoLength ?? false,
   fitRequest: 0,
@@ -489,10 +495,35 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setDisplayDialogOpen: (displayDialogOpen) => set({ displayDialogOpen }),
 
   setBackdrop: (backdrop) =>
-    set((s) => ({ backdrop, metersPerUnit: backdrop.metersPerUnit ?? s.metersPerUnit, fitRequest: s.fitRequest + 1 })),
+    set((s) => ({
+      backdrop,
+      backdropPanelOpen: true,
+      metersPerUnit: backdrop.metersPerUnit ?? s.metersPerUnit,
+      fitRequest: s.fitRequest + 1,
+    })),
   clearBackdrop: () => set({ backdrop: null }),
   updateBackdrop: (patch) =>
     set((s) => (s.backdrop ? { backdrop: { ...s.backdrop, ...patch } } : s)),
+  toggleLayer: (name) =>
+    set((s) =>
+      s.backdrop
+        ? {
+            backdrop: {
+              ...s.backdrop,
+              layers: s.backdrop.layers.map((l) =>
+                l.name === name ? { ...l, visible: !l.visible } : l,
+              ),
+            },
+          }
+        : s,
+    ),
+  setAllLayers: (visible) =>
+    set((s) =>
+      s.backdrop
+        ? { backdrop: { ...s.backdrop, layers: s.backdrop.layers.map((l) => ({ ...l, visible })) } }
+        : s,
+    ),
+  setBackdropPanelOpen: (backdropPanelOpen) => set({ backdropPanelOpen }),
   setMetersPerUnit: (v) => {
     set({ metersPerUnit: v > 0 ? v : 1 });
     if (get().autoLength) get().recomputeLengths();
