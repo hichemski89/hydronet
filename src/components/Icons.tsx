@@ -43,31 +43,34 @@ export const PanIcon = (p: IconProps) => (
 
 export const JunctionIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M12 4v3M12 17v3M4 12h3M17 12h3" />
-    <circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="6.4" />
+    <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
   </Svg>
 );
 
 export const ReservoirIcon = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="4" y="6" width="16" height="13" rx="1.2" />
-    <path d="M5.5 11c1.6-1.6 3.4-1.6 5 0s3.4 1.6 5 0M5.5 14.5c1.6-1.6 3.4-1.6 5 0s3.4 1.6 5 0" strokeWidth="1.3" />
+    <rect x="4.5" y="5" width="15" height="14" rx="1.6" />
+    <path d="M5 12q2.4-2 4.8 0t4.8 0t4.8 0" />
+    <path d="M5 15.4q2.4-2 4.8 0t4.8 0t4.8 0" strokeWidth="1.2" opacity="0.55" />
   </Svg>
 );
 
 export const TankIcon = (p: IconProps) => (
   <Svg {...p}>
-    <ellipse cx="12" cy="6.5" rx="6" ry="2" />
-    <path d="M6 6.5v11c0 1.1 2.7 2 6 2s6-.9 6-2v-11" />
-    <path d="M6 13.5c1.6 1 4 1 6 .3s4.4-.7 6 .3" strokeWidth="1.3" />
+    <rect x="5" y="3.5" width="14" height="6" rx="1.5" />
+    <path d="M5 6.5h14" strokeWidth="1.1" opacity="0.5" />
+    <path d="M10 9.5v9M14 9.5v9" />
+    <path d="M10 14h4" strokeWidth="1.2" />
+    <path d="M8 18.5h8" />
   </Svg>
 );
 
 export const PipeIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M2 12h3M19 12h3" />
-    <rect x="5" y="9" width="14" height="6" rx="1" />
-    <path d="M9 9v6M14 9v6" strokeWidth="1.2" />
+    <path d="M7 7h9a2.6 5 0 0 1 0 10H7" />
+    <ellipse cx="7" cy="12" rx="2.6" ry="5" />
+    <ellipse cx="7" cy="12" rx="1.2" ry="2.6" strokeWidth="1.2" opacity="0.6" />
   </Svg>
 );
 
