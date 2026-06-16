@@ -429,27 +429,26 @@ export default function NetworkCanvas() {
             data-node={node.id}
           />
         )}
-        {/* Réservoir de stockage : cuve cylindrique */}
+        {/* Réservoir de stockage : cuve surélevée (pieds + base) */}
         {node.type === 'tank' && (
           <g data-node={node.id}>
             <rect
-              x={p.x - NODE_R}
-              y={p.y - NODE_R - 2}
-              width={NODE_R * 2}
-              height={(NODE_R + 2) * 2}
+              x={p.x - NODE_R - 1}
+              y={p.y - NODE_R - 4}
+              width={NODE_R * 2 + 2}
+              height={NODE_R + 3}
+              rx={1.5}
               fill={fill}
               stroke={stroke}
               strokeWidth={sw}
               data-node={node.id}
             />
-            <ellipse
-              cx={p.x}
-              cy={p.y - NODE_R - 2}
-              rx={NODE_R}
-              ry={NODE_R * 0.45}
-              fill={fill}
+            <path
+              d={`M${p.x - NODE_R * 0.45},${p.y - 1} V${p.y + NODE_R + 2} M${p.x + NODE_R * 0.45},${p.y - 1} V${p.y + NODE_R + 2} M${p.x - NODE_R * 0.7},${p.y + NODE_R + 2} H${p.x + NODE_R * 0.7}`}
+              fill="none"
               stroke={stroke}
               strokeWidth={sw}
+              strokeLinecap="round"
               data-node={node.id}
             />
           </g>

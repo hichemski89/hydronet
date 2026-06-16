@@ -50,9 +50,8 @@ export const JunctionIcon = (p: IconProps) => (
 
 export const ReservoirIcon = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="4.5" y="5" width="15" height="14" rx="1.6" />
-    <path d="M5 12q2.4-2 4.8 0t4.8 0t4.8 0" />
-    <path d="M5 15.4q2.4-2 4.8 0t4.8 0t4.8 0" strokeWidth="1.2" opacity="0.55" />
+    <path d="M4 6.5h16l-2.6 11H6.6z" />
+    <path d="M7.5 11q2.25-1.7 4.5 0t4.5 0" strokeWidth="1.3" opacity="0.7" />
   </Svg>
 );
 
