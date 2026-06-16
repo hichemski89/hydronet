@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNetworkStore } from '../store/networkStore';
 import { NetworkNode } from '../types/network';
 import { colorFor, normalize } from '../utils/colorScale';
@@ -149,6 +149,30 @@ export default function NetworkCanvas() {
     const rect = svgRef.current!.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
+
+  // Calque de fond DAO (mémoïsé : ne se recalcule qu'au changement de fond)
+  const backdropLayer = useMemo(() => {
+    if (!backdrop) return null;
+    return (
+      <>
+        <path d={backdrop.pathData} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        {(backdrop.circles ?? []).map((c, i) => (
+          <circle key={`c${i}`} cx={c.cx} cy={c.cy} r={c.r} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        ))}
+        {(backdrop.texts ?? []).map((t, i) => (
+          <text
+            key={`t${i}`}
+            transform={`translate(${t.x} ${t.y}) scale(1 -1) rotate(${-t.rotation})`}
+            fontSize={t.height}
+            fill="#475569"
+            style={{ userSelect: 'none' }}
+          >
+            {t.text}
+          </text>
+        ))}
+      </>
+    );
+  }, [backdrop]);
 
   // Domaines de couleur (au temps courant)
   const nDomain = results ? nodeDomain(results, nodeMetric, timeIndex) : null;
@@ -579,10 +603,7 @@ export default function NetworkCanvas() {
             opacity={backdrop.opacity}
             style={{ pointerEvents: 'none' }}
           >
-            <path d={backdrop.pathData} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-            {backdrop.circles.map((c, i) => (
-              <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-            ))}
+            {backdropLayer}
           </g>
         )}
         <g>{Object.keys(network.links).map(renderLink)}</g>
