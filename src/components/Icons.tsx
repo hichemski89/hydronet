@@ -68,9 +68,8 @@ export const TankIcon = (p: IconProps) => (
 
 export const PipeIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M7 7h9a2.6 5 0 0 1 0 10H7" />
-    <ellipse cx="7" cy="12" rx="2.6" ry="5" />
-    <ellipse cx="7" cy="12" rx="1.2" ry="2.6" strokeWidth="1.2" opacity="0.6" />
+    <path d="M5 12h14" strokeWidth="2" />
+    <path d="M5 7.5v9M19 7.5v9" />
   </Svg>
 );
 

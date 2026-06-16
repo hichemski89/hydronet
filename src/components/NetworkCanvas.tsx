@@ -284,8 +284,8 @@ export default function NetworkCanvas() {
       select(null);
       items = [
         { label: 'Ajouter un nœud ici', icon: '●', onClick: () => addNode('junction', mp.x, mp.y) },
-        { label: 'Ajouter un réservoir ici', icon: '▭', onClick: () => addNode('reservoir', mp.x, mp.y) },
-        { label: 'Ajouter un château d’eau ici', icon: '◻', onClick: () => addNode('tank', mp.x, mp.y) },
+        { label: 'Ajouter une bâche / source ici', icon: '▭', onClick: () => addNode('reservoir', mp.x, mp.y) },
+        { label: 'Ajouter un réservoir ici', icon: '◻', onClick: () => addNode('tank', mp.x, mp.y) },
         { type: 'separator' },
         { label: snapToGrid ? 'Désactiver le magnétisme' : 'Activer le magnétisme', icon: '▦', onClick: toggleSnap },
         { label: 'Recadrer la vue', icon: '⊡', onClick: requestFit },
@@ -418,26 +418,41 @@ export default function NetworkCanvas() {
         {node.type === 'junction' && (
           <circle cx={p.x} cy={p.y} r={NODE_R} fill={fill} stroke={stroke} strokeWidth={sw} data-node={node.id} />
         )}
+        {/* Bâche à eau / source : bassin (trapèze ouvert vers le haut) */}
         {node.type === 'reservoir' && (
-          <rect
-            x={p.x - NODE_R - 2}
-            y={p.y - NODE_R}
-            width={(NODE_R + 2) * 2}
-            height={NODE_R * 2}
+          <polygon
+            points={`${p.x - NODE_R - 3},${p.y - NODE_R} ${p.x + NODE_R + 3},${p.y - NODE_R} ${p.x + NODE_R - 1},${p.y + NODE_R} ${p.x - NODE_R + 1},${p.y + NODE_R}`}
             fill={fill}
             stroke={stroke}
             strokeWidth={sw}
+            strokeLinejoin="round"
             data-node={node.id}
           />
         )}
+        {/* Réservoir de stockage : cuve cylindrique */}
         {node.type === 'tank' && (
-          <path
-            d={tankPath(p.x, p.y, NODE_R + 2)}
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={sw}
-            data-node={node.id}
-          />
+          <g data-node={node.id}>
+            <rect
+              x={p.x - NODE_R}
+              y={p.y - NODE_R - 2}
+              width={NODE_R * 2}
+              height={(NODE_R + 2) * 2}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={sw}
+              data-node={node.id}
+            />
+            <ellipse
+              cx={p.x}
+              cy={p.y - NODE_R - 2}
+              rx={NODE_R}
+              ry={NODE_R * 0.45}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={sw}
+              data-node={node.id}
+            />
+          </g>
         )}
         {display.showNodeLabels && (
           <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={11} fill="#374151" style={{ userSelect: 'none' }}>
@@ -520,11 +535,6 @@ function nodeFill(type: NetworkNode['type']): string {
     case 'tank':
       return '#0891b2';
   }
-}
-
-function tankPath(cx: number, cy: number, r: number): string {
-  // Petit cylindre stylisé
-  return `M${cx - r},${cy - r} h${2 * r} v${2 * r} h${-2 * r} z`;
 }
 
 function FlowArrow({ pts, reversed }: { pts: Pt[]; reversed: boolean }) {

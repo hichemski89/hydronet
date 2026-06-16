@@ -625,7 +625,7 @@ function PumpCurveEditor({ pump, flowU, lenU }: { pump: Pump; flowU: string; len
 }
 
 function nodeTypeLabel(t: string): string {
-  return t === 'junction' ? 'Nœud' : t === 'reservoir' ? 'Réservoir' : 'Château';
+  return t === 'junction' ? 'Nœud' : t === 'reservoir' ? 'Bâche' : 'Réservoir';
 }
 function linkTypeLabel(t: string): string {
   return t === 'pipe' ? 'Conduite' : t === 'pump' ? 'Pompe' : 'Vanne';

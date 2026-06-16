@@ -91,8 +91,8 @@ export function generateReport(input: ReportInput): void {
     head: [['Élément', 'Nombre', 'Élément', 'Nombre']],
     body: [
       ['Nœuds de demande', String(nJun), 'Conduites', String(nPipe)],
-      ['Réservoirs/Sources', String(nRes), 'Pompes', String(nPump)],
-      ['Châteaux d’eau', String(nTank), 'Vannes', String(nValve)],
+      ['Bâches / Sources', String(nRes), 'Pompes', String(nPump)],
+      ['Réservoirs (stockage)', String(nTank), 'Vannes', String(nValve)],
     ],
     styles: { fontSize: 9 },
   });
@@ -312,7 +312,7 @@ function sectionTitle(doc: jsPDF, text: string, x: number, y: number): void {
 }
 
 function nodeTypeLabel(t: string): string {
-  return t === 'junction' ? 'Nœud' : t === 'reservoir' ? 'Réservoir' : 'Château';
+  return t === 'junction' ? 'Nœud' : t === 'reservoir' ? 'Bâche' : 'Réservoir';
 }
 function linkTypeLabel(t: string): string {
   return t === 'pipe' ? 'Conduite' : t === 'pump' ? 'Pompe' : 'Vanne';

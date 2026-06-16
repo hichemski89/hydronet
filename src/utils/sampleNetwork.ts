@@ -9,7 +9,7 @@ export function sampleNetwork(): Network {
     meta: {
       name: 'Réseau de démonstration',
       author: '',
-      description: 'Exemple : réservoir + pompe + château d’eau + distribution',
+      description: 'Exemple : bâche/source + pompe + réservoir + distribution',
       createdAt: new Date().toISOString(),
     },
     options: { ...DEFAULT_OPTIONS },
@@ -41,7 +41,7 @@ export function sampleNetwork(): Network {
         minLevel: 0,
         maxLevel: 12,
         diameter: 18,
-        label: 'Château d’eau',
+        label: 'Réservoir',
       },
     },
     links: {
