@@ -7,6 +7,7 @@ import MapLegend from './components/MapLegend';
 import TimeBar from './components/TimeBar';
 import StatusBar from './components/StatusBar';
 import ProfileChart from './components/ProfileChart';
+import ZoomControls from './components/ZoomControls';
 import DisplaySettingsDialog from './components/DisplaySettingsDialog';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
@@ -23,6 +24,7 @@ export default function App() {
           <div className={`map-viewport ${showGrid ? '' : 'no-grid'}`} style={{ backgroundColor }}>
             <NetworkCanvas />
             <MapLegend />
+            <ZoomControls />
             <TimeBar />
           </div>
           <ProfileChart />

@@ -2,6 +2,7 @@ import { useNetworkStore } from '../store/networkStore';
 
 const TOOL_HINTS: Record<string, string> = {
   select: 'Cliquez pour sélectionner · glissez un nœud pour le déplacer',
+  rectselect: 'Glissez pour sélectionner une zone · Suppr pour tout supprimer · glissez la sélection pour la déplacer',
   pan: 'Glissez pour déplacer la vue · molette pour zoomer',
   junction: 'Cliquez sur le plan pour ajouter un nœud de demande',
   reservoir: 'Cliquez pour ajouter une bâche à eau / source (charge fixe)',

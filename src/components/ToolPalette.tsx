@@ -2,6 +2,7 @@ import { ComponentType } from 'react';
 import { Tool, useNetworkStore } from '../store/networkStore';
 import {
   SelectIcon,
+  RectSelectIcon,
   PanIcon,
   JunctionIcon,
   ReservoirIcon,
@@ -21,6 +22,7 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
   { id: 'select', label: 'Sélection / Déplacement', Icon: SelectIcon, group: 0 },
+  { id: 'rectselect', label: 'Sélection rectangulaire', Icon: RectSelectIcon, group: 0 },
   { id: 'pan', label: 'Déplacer la vue', Icon: PanIcon, group: 0 },
   { id: 'junction', label: 'Nœud de demande', Icon: JunctionIcon, group: 1 },
   { id: 'reservoir', label: 'Bâche à eau / Source', Icon: ReservoirIcon, group: 1 },

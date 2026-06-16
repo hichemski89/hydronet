@@ -78,8 +78,33 @@ export default function PropertiesPanel() {
   const updateOptions = useNetworkStore((s) => s.updateOptions);
   const updateCriteria = useNetworkStore((s) => s.updateCriteria);
   const deleteSelection = useNetworkStore((s) => s.deleteSelection);
+  const selNodes = useNetworkStore((s) => s.selNodes);
+  const selLinks = useNetworkStore((s) => s.selLinks);
+  const deleteMultiSelection = useNetworkStore((s) => s.deleteMultiSelection);
+  const clearMultiSelection = useNetworkStore((s) => s.clearMultiSelection);
   const flowU = flowUnitLabel(network.options.flowUnits);
   const lenU = network.options.flowUnits === 'GPM' || network.options.flowUnits === 'CFS' ? 'ft' : 'm';
+
+  if (!selection && (selNodes.length > 0 || selLinks.length > 0)) {
+    return (
+      <div className="props">
+        <h3 className="props-title">Sélection multiple</h3>
+        <p className="hint">
+          {selNodes.length} nœud(s) et {selLinks.length} conduite(s)/lien(s) sélectionnés.
+          <br />
+          Glissez un élément sélectionné pour tout déplacer, ou supprimez l’ensemble.
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-sm" onClick={clearMultiSelection}>
+            Désélectionner
+          </button>
+          <button className="btn btn-sm btn-danger" onClick={deleteMultiSelection}>
+            Supprimer la sélection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!selection) {
     const o = network.options;

@@ -166,3 +166,31 @@ export const ExportIcon = (p: IconProps) => (
     <path d="M5 19h14" />
   </Svg>
 );
+
+export const ZoomInIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="10.5" cy="10.5" r="6.5" />
+    <path d="M20 20l-4.7-4.7M10.5 7.5v6M7.5 10.5h6" />
+  </Svg>
+);
+
+export const ZoomOutIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="10.5" cy="10.5" r="6.5" />
+    <path d="M20 20l-4.7-4.7M7.5 10.5h6" />
+  </Svg>
+);
+
+export const FitIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4" />
+    <rect x="8.5" y="8.5" width="7" height="7" rx="0.5" strokeWidth="1.3" />
+  </Svg>
+);
+
+export const RectSelectIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V7M20 14v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" strokeDasharray="2.4 2.2" />
+    <path d="M11 11l5.5 2-2.2.9 1.6 2.6-1.3.7-1.6-2.6-1.6 1.6z" fill="currentColor" stroke="none" />
+  </Svg>
+);

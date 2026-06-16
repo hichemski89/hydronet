@@ -28,6 +28,7 @@ import {
 
 export type Tool =
   | 'select'
+  | 'rectselect'
   | 'pan'
   | 'junction'
   | 'reservoir'
@@ -84,6 +85,9 @@ interface NetworkState {
   network: Network;
   tool: Tool;
   selection: Selection | null;
+  /** Multi-sélection (sélection rectangulaire). */
+  selNodes: string[];
+  selLinks: string[];
   view: ViewTransform;
   results: SimulationResults | null;
   currentTimeIndex: number;
@@ -119,6 +123,10 @@ interface NetworkState {
   setTool: (tool: Tool) => void;
   setView: (view: Partial<ViewTransform>) => void;
   select: (sel: Selection | null) => void;
+  setMultiSelection: (nodes: string[], links: string[]) => void;
+  clearMultiSelection: () => void;
+  deleteMultiSelection: () => void;
+  moveNodesBy: (ids: string[], dx: number, dy: number) => void;
   addNode: (type: NodeType, x: number, y: number) => string;
   updateNode: (id: string, patch: Partial<NetworkNode>) => void;
   deleteNode: (id: string) => void;
@@ -272,6 +280,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   network: loadPersistedNetwork() ?? sampleNetwork(),
   tool: 'select',
   selection: null,
+  selNodes: [],
+  selLinks: [],
   view: { scale: 1, offsetX: 0, offsetY: 0 },
   results: null,
   currentTimeIndex: 0,
@@ -296,7 +306,59 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   setTool: (tool) => set({ tool, pendingLink: null }),
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
-  select: (selection) => set({ selection }),
+  select: (selection) => set({ selection, selNodes: [], selLinks: [] }),
+
+  setMultiSelection: (selNodes, selLinks) => set({ selNodes, selLinks, selection: null }),
+  clearMultiSelection: () => set({ selNodes: [], selLinks: [] }),
+
+  deleteMultiSelection: () => {
+    const { selNodes, selLinks } = get();
+    if (selNodes.length === 0 && selLinks.length === 0) return;
+    get().commit();
+    set((s) => {
+      const nodes = { ...s.network.nodes };
+      const links = { ...s.network.links };
+      for (const id of selLinks) delete links[id];
+      for (const id of selNodes) {
+        delete nodes[id];
+        // supprime aussi les liens rattachés aux nœuds supprimés
+        for (const lid of Object.keys(links)) {
+          if (links[lid].node1 === id || links[lid].node2 === id) delete links[lid];
+        }
+      }
+      return {
+        network: { ...s.network, nodes, links },
+        selNodes: [],
+        selLinks: [],
+        selection: null,
+        results: null,
+      };
+    });
+  },
+
+  moveNodesBy: (ids, dx, dy) =>
+    set((s) => {
+      if (ids.length === 0) return s;
+      const idSet = new Set(ids);
+      const nodes = { ...s.network.nodes };
+      for (const id of ids) {
+        const nd = nodes[id];
+        if (nd) nodes[id] = { ...nd, x: nd.x + dx, y: nd.y + dy };
+      }
+      let links = s.network.links;
+      if (s.autoLength) {
+        const tmpNet = { ...s.network, nodes };
+        links = { ...s.network.links };
+        for (const lid of Object.keys(links)) {
+          const lk = links[lid];
+          if (lk.type === 'pipe' && (idSet.has(lk.node1) || idSet.has(lk.node2))) {
+            const len = Math.round(linkModelLength(tmpNet, lk) * s.metersPerUnit * 100) / 100;
+            if (len > 0) links[lid] = { ...lk, length: len };
+          }
+        }
+      }
+      return { network: { ...s.network, nodes, links } };
+    }),
 
   addNode: (type, x, y) => {
     get().commit();
@@ -578,6 +640,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       network,
       results: null,
       selection: null,
+      selNodes: [],
+      selLinks: [],
       currentTimeIndex: 0,
       simStatus: 'idle',
       profilePath: [],
@@ -590,6 +654,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       network: emptyNetwork(),
       results: null,
       selection: null,
+      selNodes: [],
+      selLinks: [],
       currentTimeIndex: 0,
       simStatus: 'idle',
       profilePath: [],

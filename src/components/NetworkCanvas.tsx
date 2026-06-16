@@ -24,6 +24,7 @@ export default function NetworkCanvas() {
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [cursorModel, setCursorModel] = useState<Pt | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
   const network = useNetworkStore((s) => s.network);
   const view = useNetworkStore((s) => s.view);
@@ -32,6 +33,12 @@ export default function NetworkCanvas() {
   const setTool = useNetworkStore((s) => s.setTool);
   const selection = useNetworkStore((s) => s.selection);
   const select = useNetworkStore((s) => s.select);
+  const selNodes = useNetworkStore((s) => s.selNodes);
+  const selLinks = useNetworkStore((s) => s.selLinks);
+  const setMultiSelection = useNetworkStore((s) => s.setMultiSelection);
+  const clearMultiSelection = useNetworkStore((s) => s.clearMultiSelection);
+  const deleteMultiSelection = useNetworkStore((s) => s.deleteMultiSelection);
+  const moveNodesBy = useNetworkStore((s) => s.moveNodesBy);
   const addNode = useNetworkStore((s) => s.addNode);
   const updateNode = useNetworkStore((s) => s.updateNode);
   const deleteNode = useNetworkStore((s) => s.deleteNode);
@@ -66,14 +73,15 @@ export default function NetworkCanvas() {
 
   // Suivi des interactions (souris)
   const interaction = useRef<{
-    mode: 'none' | 'pan' | 'dragNode' | 'maybe';
+    mode: 'none' | 'pan' | 'dragNode' | 'dragGroup' | 'marquee' | 'maybe';
     startScreen: Pt;
     lastScreen: Pt;
+    lastModel: Pt;
     nodeId?: string;
     targetKind?: 'node' | 'link';
     targetId?: string;
     moved: boolean;
-  }>({ mode: 'none', startScreen: { x: 0, y: 0 }, lastScreen: { x: 0, y: 0 }, moved: false });
+  }>({ mode: 'none', startScreen: { x: 0, y: 0 }, lastScreen: { x: 0, y: 0 }, lastModel: { x: 0, y: 0 }, moved: false });
 
   // Redimensionnement
   useEffect(() => {
@@ -156,13 +164,14 @@ export default function NetworkCanvas() {
     const linkId = target.getAttribute('data-link');
 
     if (tool === 'pan' || e.button === 1) {
-      interaction.current = { mode: 'pan', startScreen: sp, lastScreen: sp, moved: false };
+      interaction.current = { mode: 'pan', startScreen: sp, lastScreen: sp, lastModel: sp, moved: false };
       return;
     }
     interaction.current = {
       mode: 'maybe',
       startScreen: sp,
       lastScreen: sp,
+      lastModel: sp,
       moved: false,
       nodeId: nodeId ?? undefined,
       targetKind: nodeId ? 'node' : linkId ? 'link' : undefined,
@@ -178,9 +187,18 @@ export default function NetworkCanvas() {
     const dy = sp.y - it.startScreen.y;
 
     if (it.mode === 'maybe' && Math.hypot(dx, dy) > MOVE_THRESHOLD) {
-      // Démarre un déplacement de nœud (outil sélection) ou un pan
-      if (it.nodeId && tool === 'select') {
-        it.mode = 'dragNode';
+      if (tool === 'rectselect') {
+        // Sélection rectangulaire
+        it.mode = 'marquee';
+        setMarquee({ x0: it.startScreen.x, y0: it.startScreen.y, x1: sp.x, y1: sp.y });
+      } else if (it.nodeId && tool === 'select') {
+        // Déplacement : groupé si le nœud fait partie d'une multi-sélection
+        if (selNodes.includes(it.nodeId)) {
+          it.mode = 'dragGroup';
+          it.lastModel = screenToModel(sp.x, sp.y);
+        } else {
+          it.mode = 'dragNode';
+        }
         commit(); // un seul point d'annulation pour tout le déplacement
       } else {
         it.mode = 'pan';
@@ -194,11 +212,19 @@ export default function NetworkCanvas() {
       setView({ offsetX: view.offsetX + ddx, offsetY: view.offsetY + ddy });
       it.lastScreen = sp;
       it.moved = true;
+    } else if (it.mode === 'marquee') {
+      setMarquee({ x0: it.startScreen.x, y0: it.startScreen.y, x1: sp.x, y1: sp.y });
+      it.moved = true;
     } else if (it.mode === 'dragNode' && it.nodeId) {
       const mp = screenToModel(sp.x, sp.y);
       const nx = snapToGrid ? Math.round(mp.x / gridSize) * gridSize : mp.x;
       const ny = snapToGrid ? Math.round(mp.y / gridSize) * gridSize : mp.y;
       updateNode(it.nodeId, { x: nx, y: ny });
+      it.lastScreen = sp;
+    } else if (it.mode === 'dragGroup') {
+      const mp = screenToModel(sp.x, sp.y);
+      moveNodesBy(selNodes, mp.x - it.lastModel.x, mp.y - it.lastModel.y);
+      it.lastModel = mp;
       it.lastScreen = sp;
     }
   };
@@ -207,7 +233,26 @@ export default function NetworkCanvas() {
     const it = interaction.current;
     svgRef.current?.releasePointerCapture(e.pointerId);
 
-    if (it.mode === 'maybe' && !it.moved) {
+    if (it.mode === 'marquee') {
+      const a = screenToModel(it.startScreen.x, it.startScreen.y);
+      const sp = getScreenPoint(e);
+      const b = screenToModel(sp.x, sp.y);
+      const minX = Math.min(a.x, b.x);
+      const maxX = Math.max(a.x, b.x);
+      const minY = Math.min(a.y, b.y);
+      const maxY = Math.max(a.y, b.y);
+      const nodes: string[] = [];
+      for (const nd of Object.values(network.nodes)) {
+        if (nd.x >= minX && nd.x <= maxX && nd.y >= minY && nd.y <= maxY) nodes.push(nd.id);
+      }
+      const nodeSet = new Set(nodes);
+      const links: string[] = [];
+      for (const lk of Object.values(network.links)) {
+        if (nodeSet.has(lk.node1) && nodeSet.has(lk.node2)) links.push(lk.id);
+      }
+      setMultiSelection(nodes, links);
+      setMarquee(null);
+    } else if (it.mode === 'maybe' && !it.moved) {
       handleClick(it.targetKind, it.targetId, e);
     }
     interaction.current = { ...it, mode: 'none', moved: false };
@@ -327,12 +372,19 @@ export default function NetworkCanvas() {
         return;
       }
       if (typing) return;
-      if (e.key === 'Escape') cancelPendingLink();
-      if (e.key === 'Delete' || e.key === 'Backspace') deleteSelection();
+      if (e.key === 'Escape') {
+        cancelPendingLink();
+        clearMultiSelection();
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (useNetworkStore.getState().selNodes.length || useNetworkStore.getState().selLinks.length)
+          deleteMultiSelection();
+        else deleteSelection();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cancelPendingLink, deleteSelection, undo, redo, duplicateSelection]);
+  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, undo, redo, duplicateSelection]);
 
   // --- Rendu ---
   const renderLink = (linkId: string) => {
@@ -365,7 +417,7 @@ export default function NetworkCanvas() {
         }
       }
     }
-    const isSel = selection?.kind === 'link' && selection.id === linkId;
+    const isSel = (selection?.kind === 'link' && selection.id === linkId) || selLinks.includes(linkId);
 
     return (
       <g key={linkId}>
@@ -400,7 +452,7 @@ export default function NetworkCanvas() {
   const renderNode = (node: NetworkNode) => {
     const NODE_R = display.nodeSize;
     const p = modelToScreen(node);
-    const isSel = selection?.kind === 'node' && selection.id === node.id;
+    const isSel = (selection?.kind === 'node' && selection.id === node.id) || selNodes.includes(node.id);
     let fill = nodeFill(node.type);
     let resultText: string | null = null;
     if (results && showOverlay) {
@@ -537,6 +589,19 @@ export default function NetworkCanvas() {
         {renderProfilePath()}
         {renderPending()}
         <g>{Object.values(network.nodes).map(renderNode)}</g>
+        {marquee && (
+          <rect
+            x={Math.min(marquee.x0, marquee.x1)}
+            y={Math.min(marquee.y0, marquee.y1)}
+            width={Math.abs(marquee.x1 - marquee.x0)}
+            height={Math.abs(marquee.y1 - marquee.y0)}
+            fill="rgba(29,78,216,0.08)"
+            stroke="#1d4ed8"
+            strokeWidth={1}
+            strokeDasharray="4 3"
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
       </svg>
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
