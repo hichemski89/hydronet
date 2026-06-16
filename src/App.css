@@ -616,6 +616,15 @@ body {
 .disp-slider input {
   width: 100%;
 }
+.backdrop-info {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg);
+  border-radius: 7px;
+  padding: 7px 9px;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
 .disp-color {
   display: flex;
   align-items: center;

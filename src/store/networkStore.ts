@@ -15,11 +15,15 @@ import {
   DEFAULT_CRITERIA,
 } from '../types/network';
 import { sampleNetwork } from '../utils/sampleNetwork';
+import { Backdrop } from '../engine/dxfImport';
+import { linkModelLength } from '../utils/geometry';
 import {
   loadPersistedNetwork,
   savePersistedNetwork,
   loadPersistedDisplay,
   savePersistedDisplay,
+  loadPersistedCad,
+  savePersistedCad,
 } from './persist';
 
 export type Tool =
@@ -102,6 +106,12 @@ interface NetworkState {
   /** Réglages d'affichage de la carte. */
   display: DisplaySettings;
   displayDialogOpen: boolean;
+  /** Fond de plan DAO (DXF) importé, ou null. */
+  backdrop: Backdrop | null;
+  /** Échelle : mètres par unité de dessin (pour les longueurs réelles). */
+  metersPerUnit: number;
+  /** Calcule automatiquement la longueur des conduites depuis le tracé. */
+  autoLength: boolean;
   /** Incrémenté pour demander un recadrage de la vue (chargement d'un réseau). */
   fitRequest: number;
 
@@ -144,6 +154,12 @@ interface NetworkState {
   duplicateSelection: () => void;
   updateDisplay: (patch: Partial<DisplaySettings>) => void;
   setDisplayDialogOpen: (open: boolean) => void;
+  setBackdrop: (backdrop: Backdrop) => void;
+  clearBackdrop: () => void;
+  updateBackdrop: (patch: Partial<Pick<Backdrop, 'visible' | 'opacity'>>) => void;
+  setMetersPerUnit: (v: number) => void;
+  setAutoLength: (on: boolean) => void;
+  recomputeLengths: () => void;
   loadNetwork: (network: Network) => void;
   newNetwork: () => void;
 }
@@ -245,6 +261,13 @@ function snapValue(v: number, size: number, on: boolean): number {
   return on ? Math.round(v / size) * size : v;
 }
 
+interface PersistedCad {
+  backdrop: Backdrop | null;
+  metersPerUnit: number;
+  autoLength: boolean;
+}
+const persistedCad = loadPersistedCad<PersistedCad>();
+
 export const useNetworkStore = create<NetworkState>((set, get) => ({
   network: loadPersistedNetwork() ?? sampleNetwork(),
   tool: 'select',
@@ -266,6 +289,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   gridSize: 20,
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
+  backdrop: persistedCad?.backdrop ?? null,
+  metersPerUnit: persistedCad?.metersPerUnit ?? 1,
+  autoLength: persistedCad?.autoLength ?? false,
   fitRequest: 0,
 
   setTool: (tool) => set({ tool, pendingLink: null }),
@@ -293,12 +319,20 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     set((s) => {
       const node = s.network.nodes[id];
       if (!node) return s;
-      return {
-        network: {
-          ...s.network,
-          nodes: { ...s.network.nodes, [id]: { ...node, ...patch } as NetworkNode },
-        },
-      };
+      const nodes = { ...s.network.nodes, [id]: { ...node, ...patch } as NetworkNode };
+      let links = s.network.links;
+      if (s.autoLength && (patch.x !== undefined || patch.y !== undefined)) {
+        const tmpNet = { ...s.network, nodes };
+        links = { ...s.network.links };
+        for (const lid of Object.keys(links)) {
+          const lk = links[lid];
+          if (lk.type === 'pipe' && (lk.node1 === id || lk.node2 === id)) {
+            const len = Math.round(linkModelLength(tmpNet, lk) * s.metersPerUnit * 100) / 100;
+            if (len > 0) links[lid] = { ...lk, length: len };
+          }
+        }
+      }
+      return { network: { ...s.network, nodes, links } };
     }),
 
   deleteNode: (id) => {
@@ -333,6 +367,10 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       if (!p || p.node1 === node2) return { pendingLink: null };
       const link = defaultLink(p.type, p.node1, node2, p.vertices, ++linkCounter);
       link.id = uniqueLinkId(s.network, link.id);
+      if (s.autoLength && link.type === 'pipe') {
+        const len = Math.round(linkModelLength(s.network, link) * s.metersPerUnit * 100) / 100;
+        if (len > 0) link.length = len;
+      }
       return {
         network: { ...s.network, links: { ...s.network.links, [link.id]: link } },
         pendingLink: null,
@@ -387,6 +425,36 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   updateDisplay: (patch) => set((s) => ({ display: { ...s.display, ...patch } })),
   setDisplayDialogOpen: (displayDialogOpen) => set({ displayDialogOpen }),
+
+  setBackdrop: (backdrop) =>
+    set((s) => ({ backdrop, metersPerUnit: backdrop.metersPerUnit ?? s.metersPerUnit, fitRequest: s.fitRequest + 1 })),
+  clearBackdrop: () => set({ backdrop: null }),
+  updateBackdrop: (patch) =>
+    set((s) => (s.backdrop ? { backdrop: { ...s.backdrop, ...patch } } : s)),
+  setMetersPerUnit: (v) => {
+    set({ metersPerUnit: v > 0 ? v : 1 });
+    if (get().autoLength) get().recomputeLengths();
+  },
+  setAutoLength: (autoLength) => {
+    set({ autoLength });
+    if (autoLength) get().recomputeLengths();
+  },
+  recomputeLengths: () =>
+    set((s) => {
+      const mpu = s.metersPerUnit;
+      const links = { ...s.network.links };
+      let changed = false;
+      for (const id of Object.keys(links)) {
+        const lk = links[id];
+        if (lk.type !== 'pipe') continue;
+        const len = Math.round(linkModelLength(s.network, lk) * mpu * 100) / 100;
+        if (len > 0 && len !== lk.length) {
+          links[id] = { ...lk, length: len };
+          changed = true;
+        }
+      }
+      return changed ? { network: { ...s.network, links } } : s;
+    }),
 
   deleteSelection: () => {
     const sel = get().selection;
@@ -566,4 +634,27 @@ useNetworkStore.subscribe((state) => {
   if (state.display === lastDisplay) return;
   lastDisplay = state.display;
   savePersistedDisplay(lastDisplay);
+});
+
+// --- Persistance du fond de plan DAO + échelle (anti-rebond) ---
+let cadTimer: ReturnType<typeof setTimeout> | null = null;
+let lastCad = {
+  backdrop: useNetworkStore.getState().backdrop,
+  metersPerUnit: useNetworkStore.getState().metersPerUnit,
+  autoLength: useNetworkStore.getState().autoLength,
+};
+useNetworkStore.subscribe((state) => {
+  if (
+    state.backdrop === lastCad.backdrop &&
+    state.metersPerUnit === lastCad.metersPerUnit &&
+    state.autoLength === lastCad.autoLength
+  )
+    return;
+  lastCad = {
+    backdrop: state.backdrop,
+    metersPerUnit: state.metersPerUnit,
+    autoLength: state.autoLength,
+  };
+  if (cadTimer) clearTimeout(cadTimer);
+  cadTimer = setTimeout(() => savePersistedCad(lastCad), 800);
 });

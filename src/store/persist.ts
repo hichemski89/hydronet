@@ -56,3 +56,23 @@ export function savePersistedDisplay(display: unknown): void {
     /* ignoré */
   }
 }
+
+const KEY_CAD = 'hydronet:cad:v1';
+
+/** Fond de plan + réglages d'échelle persistés (best-effort ; peut échouer si volumineux). */
+export function loadPersistedCad<T>(): T | null {
+  try {
+    const raw = localStorage.getItem(KEY_CAD);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function savePersistedCad(data: unknown): void {
+  try {
+    localStorage.setItem(KEY_CAD, JSON.stringify(data));
+  } catch {
+    /* fond de plan trop volumineux pour le stockage : ignoré */
+  }
+}

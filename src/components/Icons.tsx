@@ -153,6 +153,13 @@ export const PdfIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const PlanIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 4L3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4z" />
+    <path d="M9 4v13M15 6.5v13" strokeWidth="1.3" />
+  </Svg>
+);
+
 export const ExportIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 3v12M8 11l4 4 4-4" />

@@ -41,6 +41,7 @@ export default function NetworkCanvas() {
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const setDisplayDialogOpen = useNetworkStore((s) => s.setDisplayDialogOpen);
   const display = useNetworkStore((s) => s.display);
+  const backdrop = useNetworkStore((s) => s.backdrop);
   const startLink = useNetworkStore((s) => s.startLink);
   const addLinkVertex = useNetworkStore((s) => s.addLinkVertex);
   const completeLink = useNetworkStore((s) => s.completeLink);
@@ -90,15 +91,22 @@ export default function NetworkCanvas() {
   const fittedReq = useRef(-1);
   useEffect(() => {
     if (fittedReq.current === fitRequest || size.w < 50) return;
-    const nodes = Object.values(network.nodes);
-    if (nodes.length === 0) {
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const nd of Object.values(network.nodes)) {
+      xs.push(nd.x);
+      ys.push(nd.y);
+    }
+    if (backdrop) {
+      xs.push(backdrop.bounds.minX, backdrop.bounds.maxX);
+      ys.push(backdrop.bounds.minY, backdrop.bounds.maxY);
+    }
+    if (xs.length === 0) {
       // Réseau vierge : vue centrée par défaut.
       setView({ scale: 1, offsetX: size.w / 2, offsetY: size.h / 2 });
       fittedReq.current = fitRequest;
       return;
     }
-    const xs = nodes.map((nd) => nd.x);
-    const ys = nodes.map((nd) => nd.y);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
@@ -115,7 +123,7 @@ export default function NetworkCanvas() {
       offsetY: size.h / 2 + cy * scale,
     });
     fittedReq.current = fitRequest;
-  }, [size, network.nodes, setView, fitRequest]);
+  }, [size, network.nodes, backdrop, setView, fitRequest]);
 
   const modelToScreen = useCallback(
     (p: Pt): Pt => ({ x: p.x * view.scale + view.offsetX, y: -p.y * view.scale + view.offsetY }),
@@ -513,6 +521,18 @@ export default function NetworkCanvas() {
         style={{ touchAction: 'none' }}
       >
         <rect x={0} y={0} width={size.w} height={size.h} fill="transparent" />
+        {backdrop && backdrop.visible && (
+          <g
+            transform={`translate(${view.offsetX} ${view.offsetY}) scale(${view.scale} ${-view.scale})`}
+            opacity={backdrop.opacity}
+            style={{ pointerEvents: 'none' }}
+          >
+            <path d={backdrop.pathData} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            {backdrop.circles.map((c, i) => (
+              <circle key={i} cx={c.cx} cy={c.cy} r={c.r} fill="none" stroke="#475569" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            ))}
+          </g>
+        )}
         <g>{Object.keys(network.links).map(renderLink)}</g>
         {renderProfilePath()}
         {renderPending()}
