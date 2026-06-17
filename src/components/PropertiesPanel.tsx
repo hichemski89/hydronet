@@ -266,9 +266,24 @@ export default function PropertiesPanel() {
           {(link as Pump).mode === 'head' ? (
             <PumpCurveEditor pump={link as Pump} flowU={flowU} lenU={lenU} />
           ) : (
-            <Field label="Puissance" unit="kW" value={(link as Pump).power ?? 0} onChange={(v) => updateLink(link.id, { power: v })} />
+            <Field label="Puissance nominale" unit="kW" value={(link as Pump).power ?? 0} onChange={(v) => updateLink(link.id, { power: v })} />
           )}
           <Field label="Vitesse relative" value={(link as Pump).speed ?? 1} step={0.05} onChange={(v) => updateLink(link.id, { speed: v })} />
+          <PatternSelect label="Courbe modul. vitesse" value={(link as Pump).speedPattern} onChange={(p) => updateLink(link.id, { speedPattern: p })} />
+          <label className="field">
+            <span className="field-label">État initial</span>
+            <select
+              value={(link as Pump).status}
+              onFocus={() => useNetworkStore.getState().commit()}
+              onChange={(e) => updateLink(link.id, { status: e.target.value as LinkStatus })}
+            >
+              <option value="OPEN">Marche</option>
+              <option value="CLOSED">Arrêt</option>
+            </select>
+          </label>
+          <Field label="Rendement" unit="%" value={(link as Pump).efficiency ?? 0} step={1} onChange={(v) => updateLink(link.id, { efficiency: v })} />
+          <Field label="Prix de l’énergie" value={(link as Pump).energyPrice ?? 0} step={0.01} onChange={(v) => updateLink(link.id, { energyPrice: v })} />
+          <PatternSelect label="Courbe modul. prix" value={(link as Pump).pricePattern} onChange={(p) => updateLink(link.id, { pricePattern: p })} />
         </>
       )}
 
@@ -298,11 +313,19 @@ export default function PropertiesPanel() {
   );
 }
 
-function PatternSelect({ value, onChange }: { value?: string; onChange: (v: string | undefined) => void }) {
+function PatternSelect({
+  value,
+  onChange,
+  label = 'Courbe de modulation',
+}: {
+  value?: string;
+  onChange: (v: string | undefined) => void;
+  label?: string;
+}) {
   const patterns = useNetworkStore((s) => s.network.patterns);
   return (
     <label className="field">
-      <span className="field-label">Courbe de modulation</span>
+      <span className="field-label">{label}</span>
       <select
         value={value ?? ''}
         onFocus={() => useNetworkStore.getState().commit()}

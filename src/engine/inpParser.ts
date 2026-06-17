@@ -48,6 +48,7 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
   const vertices: Record<string, { x: number; y: number }[]> = {};
   const curves: Record<string, { x: number; y: number }[]> = {};
   const demandOverride: Record<string, { demand: number; pattern?: string }> = {};
+  const energyData: Record<string, { price?: number; pricePattern?: string; efficCurve?: string }> = {};
   const controls: SimpleControl[] = [];
   const options = { ...DEFAULT_OPTIONS };
   let title = '';
@@ -177,6 +178,17 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
         demandOverride[id] = { demand: num(demand), pattern: pattern || undefined };
         break;
       }
+      case 'ENERGY': {
+        if (tk[0]?.toUpperCase() === 'PUMP' && tk[1]) {
+          const pid = tk[1];
+          const kw = tk[2]?.toUpperCase();
+          const ed = (energyData[pid] ??= {});
+          if (kw === 'PRICE') ed.price = num(tk[3]);
+          else if (kw === 'PATTERN') ed.pricePattern = tk[3];
+          else if (kw === 'EFFIC') ed.efficCurve = tk[3];
+        }
+        break;
+      }
       case 'CONTROLS': {
         // LINK <id> <OPEN|CLOSED|valeur> IF NODE <node> ABOVE|BELOW <val>
         // LINK <id> <...> AT TIME <heures>
@@ -268,6 +280,18 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
       } else if (kw === 'SPEED') {
         pump.speed = num(val);
         i++;
+      } else if (kw === 'PATTERN') {
+        pump.speedPattern = val;
+        i++;
+      }
+    }
+    const ed = energyData[pr.id];
+    if (ed) {
+      if (ed.price != null) pump.energyPrice = ed.price;
+      if (ed.pricePattern) pump.pricePattern = ed.pricePattern;
+      if (ed.efficCurve && curves[ed.efficCurve]?.length) {
+        const ys = curves[ed.efficCurve].map((p) => p.y);
+        pump.efficiency = Math.round((ys.reduce((a, b) => a + b, 0) / ys.length) * 10) / 10;
       }
     }
     links[pr.id] = pump;

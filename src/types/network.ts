@@ -89,6 +89,14 @@ export interface Pump extends BaseLink {
   curve?: PumpCurvePoint[];
   status: LinkStatus;
   speed?: number;
+  /** Courbe de modulation de la vitesse (motif appliqué à la vitesse au fil du temps). */
+  speedPattern?: string;
+  /** Rendement constant (%). */
+  efficiency?: number;
+  /** Prix de l'énergie (par kWh). */
+  energyPrice?: number;
+  /** Courbe de modulation du prix de l'énergie. */
+  pricePattern?: string;
 }
 
 export interface Valve extends BaseLink {

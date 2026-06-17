@@ -84,26 +84,42 @@ export function buildInp(network: Network): string {
   }
   L.push('');
 
-  // Courbes des pompes en mode "head" (un ou plusieurs points)
+  // Courbes des pompes (caractéristique + rendement) et lignes [ENERGY]
   const curveLines: string[] = [];
+  const energyLines: string[] = [];
   L.push('[PUMPS]');
   L.push(';ID\tNode1\tNode2\tParameters');
   for (const pu of pumps) {
+    let params: string;
     if (pu.mode === 'power' && pu.power != null) {
-      L.push(`${pu.id}\t${pu.node1}\t${pu.node2}\tPOWER ${n(pu.power)}`);
+      params = `POWER ${n(pu.power)}`;
     } else {
       const curveId = `C_${pu.id}`;
       const pts =
         pu.curve && pu.curve.length
           ? pu.curve
           : [{ flow: pu.designFlow ?? 50, head: pu.designHead ?? 40 }];
-      // Le commentaire ;PUMP: permet à EPANET Desktop de typer la courbe.
       curveLines.push(`;PUMP: ${pu.id}`);
       for (const p of pts) curveLines.push(`${curveId}\t${n(p.flow)}\t${n(p.head)}`);
-      let line = `${pu.id}\t${pu.node1}\t${pu.node2}\tHEAD ${curveId}`;
-      if (pu.speed != null && pu.speed !== 1) line += ` SPEED ${n(pu.speed)}`;
-      L.push(line);
+      params = `HEAD ${curveId}`;
     }
+    if (pu.speed != null && pu.speed !== 1) params += ` SPEED ${n(pu.speed)}`;
+    if (pu.speedPattern && network.patterns[pu.speedPattern]) params += ` PATTERN ${pu.speedPattern}`;
+    L.push(`${pu.id}\t${pu.node1}\t${pu.node2}\t${params}`);
+
+    // Données énergétiques
+    if (pu.efficiency != null && pu.efficiency > 0) {
+      const eid = `E_${pu.id}`;
+      const q = pu.designFlow ?? pu.curve?.[Math.floor((pu.curve.length - 1) / 2)]?.flow ?? 50;
+      curveLines.push(`;EFFICIENCY: ${pu.id}`);
+      curveLines.push(`${eid}\t${n(q * 0.5)}\t${n(pu.efficiency)}`);
+      curveLines.push(`${eid}\t${n(q)}\t${n(pu.efficiency)}`);
+      curveLines.push(`${eid}\t${n(q * 1.5)}\t${n(pu.efficiency)}`);
+      energyLines.push(`PUMP ${pu.id} EFFIC ${eid}`);
+    }
+    if (pu.energyPrice != null) energyLines.push(`PUMP ${pu.id} PRICE ${n(pu.energyPrice)}`);
+    if (pu.pricePattern && network.patterns[pu.pricePattern])
+      energyLines.push(`PUMP ${pu.id} PATTERN ${pu.pricePattern}`);
   }
   L.push('');
 
@@ -131,8 +147,12 @@ export function buildInp(network: Network): string {
   L.push('');
 
   L.push('[CURVES]');
-  L.push(';ID\tFlow\tHead');
+  L.push(';ID\tFlow\tValue');
   for (const c of curveLines) L.push(c);
+  L.push('');
+
+  L.push('[ENERGY]');
+  for (const line of energyLines) L.push(line);
   L.push('');
 
   // --- Contrôles simples ---
