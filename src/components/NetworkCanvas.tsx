@@ -568,14 +568,14 @@ export default function NetworkCanvas() {
         />
         {/* Flèche de sens d'écoulement */}
         {results && showOverlay && display.showFlowArrows && flowVal != null && Math.abs(flowVal) > 1e-6 && (
-          <FlowArrow pts={pts} reversed={flowVal < 0} />
+          <FlowArrow pts={pts} reversed={flowVal < 0} size={display.arrowSize} />
         )}
         {/* Symbole de pompe / vanne */}
         {link.type === 'pump' && <LinkSymbol type="pump" at={midScreen} selected={isSel} />}
         {link.type === 'valve' && <LinkSymbol type="valve" at={midScreen} selected={isSel} />}
         {/* Étiquette de lien */}
         {display.showLinkLabels && (
-          <text x={midScreen.x + 6} y={midScreen.y - 6} fontSize={10} fill="#6b7280" style={{ userSelect: 'none' }}>
+          <text x={midScreen.x + 6} y={midScreen.y - 6} fontSize={display.labelSize * 0.92} fill="#6b7280" style={{ userSelect: 'none' }}>
             {link.id}
           </text>
         )}
@@ -648,12 +648,12 @@ export default function NetworkCanvas() {
           </g>
         )}
         {display.showNodeLabels && (
-          <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={11} fill="#374151" style={{ userSelect: 'none' }}>
+          <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={display.labelSize} fill="#374151" style={{ userSelect: 'none' }}>
             {node.id}
           </text>
         )}
         {resultText && display.showResultValues && (
-          <text x={p.x} y={p.y + NODE_R + 13} fontSize={10} fontWeight={600} fill="#111827" textAnchor="middle" style={{ userSelect: 'none' }}>
+          <text x={p.x} y={p.y + NODE_R + display.labelSize + 2} fontSize={display.labelSize * 0.92} fontWeight={600} fill="#111827" textAnchor="middle" style={{ userSelect: 'none' }}>
             {resultText}
           </text>
         )}
@@ -829,7 +829,7 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
-function FlowArrow({ pts, reversed }: { pts: Pt[]; reversed: boolean }) {
+function FlowArrow({ pts, reversed, size = 6 }: { pts: Pt[]; reversed: boolean; size?: number }) {
   // Flèche au milieu du segment central
   const i = Math.max(1, Math.floor(pts.length / 2));
   const p0 = pts[i - 1];
@@ -838,7 +838,7 @@ function FlowArrow({ pts, reversed }: { pts: Pt[]; reversed: boolean }) {
   const my = (p0.y + p1.y) / 2;
   let ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
   if (reversed) ang += Math.PI;
-  const s = 6;
+  const s = size;
   const tip = { x: mx + Math.cos(ang) * s, y: my + Math.sin(ang) * s };
   const left = { x: mx + Math.cos(ang + 2.4) * s, y: my + Math.sin(ang + 2.4) * s };
   const right = { x: mx + Math.cos(ang - 2.4) * s, y: my + Math.sin(ang - 2.4) * s };

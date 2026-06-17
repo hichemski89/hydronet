@@ -55,6 +55,8 @@ export interface DisplaySettings {
   linkWidth: number;
   widthByDiameter: boolean;
   backgroundColor: string;
+  labelSize: number;
+  arrowSize: number;
 }
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
@@ -67,6 +69,8 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   linkWidth: 3,
   widthByDiameter: false,
   backgroundColor: '#f8fafc',
+  labelSize: 11,
+  arrowSize: 6,
 };
 
 export interface ViewTransform {

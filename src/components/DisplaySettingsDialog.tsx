@@ -117,9 +117,12 @@ export default function DisplaySettingsDialog() {
           <Toggle label="Identifiants des nœuds" checked={display.showNodeLabels} onChange={(v) => set({ showNodeLabels: v })} />
           <Toggle label="Identifiants des conduites" checked={display.showLinkLabels} onChange={(v) => set({ showLinkLabels: v })} />
 
+          <Slider label="Taille du texte" value={display.labelSize} min={8} max={26} step={1} suffix=" px" onChange={(v) => set({ labelSize: v })} />
+
           <div className="disp-section">Résultats</div>
           <Toggle label="Valeurs aux nœuds (sous le symbole)" checked={display.showResultValues} onChange={(v) => set({ showResultValues: v })} />
           <Toggle label="Flèches de sens d’écoulement" checked={display.showFlowArrows} onChange={(v) => set({ showFlowArrows: v })} />
+          <Slider label="Taille des flèches" value={display.arrowSize} min={3} max={18} step={1} suffix=" px" onChange={(v) => set({ arrowSize: v })} />
 
           <div className="disp-section">Carte</div>
           <ColorRow label="Couleur du fond" value={display.backgroundColor} onChange={(v) => set({ backgroundColor: v })} />
@@ -153,5 +156,7 @@ function defaultsForReset(): DisplaySettings {
     linkWidth: 3,
     widthByDiameter: false,
     backgroundColor: '#f8fafc',
+    labelSize: 11,
+    arrowSize: 6,
   };
 }
