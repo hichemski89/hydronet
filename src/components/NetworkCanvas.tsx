@@ -44,6 +44,11 @@ export default function NetworkCanvas() {
   const deleteNode = useNetworkStore((s) => s.deleteNode);
   const deleteLink = useNetworkStore((s) => s.deleteLink);
   const reverseLink = useNetworkStore((s) => s.reverseLink);
+  const editingVertexLink = useNetworkStore((s) => s.editingVertexLink);
+  const setEditingVertexLink = useNetworkStore((s) => s.setEditingVertexLink);
+  const updateLinkVertex = useNetworkStore((s) => s.updateLinkVertex);
+  const insertLinkVertex = useNetworkStore((s) => s.insertLinkVertex);
+  const deleteLinkVertex = useNetworkStore((s) => s.deleteLinkVertex);
   const requestFit = useNetworkStore((s) => s.requestFit);
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const setDisplayDialogOpen = useNetworkStore((s) => s.setDisplayDialogOpen);
@@ -76,13 +81,14 @@ export default function NetworkCanvas() {
 
   // Suivi des interactions (souris)
   const interaction = useRef<{
-    mode: 'none' | 'pan' | 'dragNode' | 'dragGroup' | 'marquee' | 'clipframe' | 'maybe';
+    mode: 'none' | 'pan' | 'dragNode' | 'dragGroup' | 'marquee' | 'clipframe' | 'dragVertex' | 'maybe';
     startScreen: Pt;
     lastScreen: Pt;
     lastModel: Pt;
     nodeId?: string;
     targetKind?: 'node' | 'link';
     targetId?: string;
+    vertexIndex?: number;
     moved: boolean;
   }>({ mode: 'none', startScreen: { x: 0, y: 0 }, lastScreen: { x: 0, y: 0 }, lastModel: { x: 0, y: 0 }, moved: false });
 
@@ -206,6 +212,22 @@ export default function NetworkCanvas() {
       return;
     }
 
+    // Glisser une poignée de sommet (mode édition des sommets)
+    const vtx = target.getAttribute('data-vertex');
+    if (vtx !== null && editingVertexLink) {
+      interaction.current = {
+        mode: 'dragVertex',
+        startScreen: sp,
+        lastScreen: sp,
+        lastModel: screenToModel(sp.x, sp.y),
+        targetId: editingVertexLink,
+        vertexIndex: parseInt(vtx),
+        moved: false,
+      };
+      commit();
+      return;
+    }
+
     if (tool === 'pan' || e.button === 1) {
       interaction.current = { mode: 'pan', startScreen: sp, lastScreen: sp, lastModel: sp, moved: false };
       return;
@@ -269,6 +291,13 @@ export default function NetworkCanvas() {
       moveNodesBy(selNodes, mp.x - it.lastModel.x, mp.y - it.lastModel.y);
       it.lastModel = mp;
       it.lastScreen = sp;
+    } else if (it.mode === 'dragVertex' && it.targetId != null && it.vertexIndex != null) {
+      const mp = screenToModel(sp.x, sp.y);
+      const nx = snapToGrid ? Math.round(mp.x / gridSize) * gridSize : mp.x;
+      const ny = snapToGrid ? Math.round(mp.y / gridSize) * gridSize : mp.y;
+      updateLinkVertex(it.targetId, it.vertexIndex, nx, ny);
+      it.lastScreen = sp;
+      it.moved = true;
     }
   };
 
@@ -327,6 +356,19 @@ export default function NetworkCanvas() {
     const sp = getScreenPoint(e);
     const mp = screenToModel(sp.x, sp.y);
 
+    // Mode édition des sommets : clic sur la conduite = ajouter un sommet
+    if (editingVertexLink) {
+      if (targetKind === 'link' && targetId === editingVertexLink) {
+        const idx = nearestSegmentIndex(editingVertexLink, mp);
+        const vx = snapToGrid ? Math.round(mp.x / gridSize) * gridSize : mp.x;
+        const vy = snapToGrid ? Math.round(mp.y / gridSize) * gridSize : mp.y;
+        insertLinkVertex(editingVertexLink, idx, vx, vy);
+        return;
+      }
+      // Clic ailleurs : on termine l'édition et on poursuit la sélection normale
+      setEditingVertexLink(null);
+    }
+
     // Outils de placement de nœud
     if (tool === 'junction' || tool === 'reservoir' || tool === 'tank') {
       if (!targetId) addNode(tool, mp.x, mp.y);
@@ -355,6 +397,26 @@ export default function NetworkCanvas() {
     else select(null);
   };
 
+  // Index d'insertion (dans le tableau des sommets) du segment le plus proche du clic
+  const nearestSegmentIndex = (linkId: string, mp: Pt): number => {
+    const link = network.links[linkId];
+    if (!link) return 0;
+    const a = network.nodes[link.node1];
+    const b = network.nodes[link.node2];
+    if (!a || !b) return 0;
+    const pts = [a, ...(link.vertices ?? []), b];
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = distToSegment(mp, pts[i], pts[i + 1]);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  };
+
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const sp = getScreenPoint(e);
@@ -374,11 +436,19 @@ export default function NetworkCanvas() {
     const target = e.target as Element;
     const nodeId = target.getAttribute('data-node');
     const linkId = target.getAttribute('data-link');
+    const vtx = target.getAttribute('data-vertex');
     const rect = svgRef.current!.getBoundingClientRect();
     const mp = screenToModel(e.clientX - rect.left, e.clientY - rect.top);
 
     let items: MenuItem[];
-    if (nodeId) {
+    if (vtx !== null && editingVertexLink) {
+      const idx = parseInt(vtx);
+      items = [
+        { label: 'Supprimer ce sommet', icon: '🗑', danger: true, onClick: () => deleteLinkVertex(editingVertexLink, idx) },
+        { type: 'separator' },
+        { label: 'Terminer l’édition', icon: '✓', onClick: () => setEditingVertexLink(null) },
+      ];
+    } else if (nodeId) {
       select({ kind: 'node', id: nodeId });
       items = [
         { label: 'Démarrer une conduite', icon: '╱', onClick: () => { setTool('pipe'); startLink('pipe', nodeId); } },
@@ -390,6 +460,7 @@ export default function NetworkCanvas() {
     } else if (linkId) {
       select({ kind: 'link', id: linkId });
       items = [
+        { label: 'Éditer les sommets', icon: '⋲', onClick: () => setEditingVertexLink(linkId) },
         { label: 'Inverser le sens', icon: '⇄', onClick: () => reverseLink(linkId) },
         { type: 'separator' },
         { label: 'Supprimer', icon: '🗑', danger: true, onClick: () => deleteLink(linkId) },
@@ -437,6 +508,7 @@ export default function NetworkCanvas() {
         cancelPendingLink();
         clearMultiSelection();
         if (useNetworkStore.getState().definingClip) setDefiningClip(false);
+        if (useNetworkStore.getState().editingVertexLink) setEditingVertexLink(null);
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (useNetworkStore.getState().selNodes.length || useNetworkStore.getState().selLinks.length)
@@ -446,7 +518,7 @@ export default function NetworkCanvas() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, setDefiningClip, undo, redo, duplicateSelection]);
+  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, setDefiningClip, setEditingVertexLink, undo, redo, duplicateSelection]);
 
   // --- Rendu ---
   const renderLink = (linkId: string) => {
@@ -612,6 +684,35 @@ export default function NetworkCanvas() {
     );
   };
 
+  // Poignées des sommets (mode édition)
+  const renderVertexHandles = () => {
+    if (!editingVertexLink) return null;
+    const link = network.links[editingVertexLink];
+    if (!link || !link.vertices) return null;
+    return (
+      <g>
+        {link.vertices.map((v, i) => {
+          const p = modelToScreen(v);
+          return (
+            <rect
+              key={i}
+              x={p.x - 5}
+              y={p.y - 5}
+              width={10}
+              height={10}
+              rx={2}
+              fill="#ffffff"
+              stroke="#7c3aed"
+              strokeWidth={2}
+              data-vertex={i}
+              style={{ cursor: 'move' }}
+            />
+          );
+        })}
+      </g>
+    );
+  };
+
   // Tracé en cours (rubber-band)
   const renderPending = () => {
     if (!pendingLink || !cursorModel) return null;
@@ -675,6 +776,7 @@ export default function NetworkCanvas() {
         {renderProfilePath()}
         {renderPending()}
         <g>{Object.values(network.nodes).map(renderNode)}</g>
+        {renderVertexHandles()}
         {marquee && (
           <rect
             x={Math.min(marquee.x0, marquee.x1)}
@@ -697,6 +799,12 @@ export default function NetworkCanvas() {
           Tracez un rectangle pour délimiter la zone du plan à afficher · <kbd>Échap</kbd> pour annuler
         </div>
       )}
+      {editingVertexLink && (
+        <div className="clip-banner">
+          Édition des sommets de {editingVertexLink} : glissez les poignées · cliquez la conduite pour
+          ajouter · clic droit sur une poignée pour supprimer · <kbd>Échap</kbd> pour terminer
+        </div>
+      )}
     </>
   );
 }
@@ -710,6 +818,15 @@ function nodeFill(type: NetworkNode['type']): string {
     case 'tank':
       return '#0891b2';
   }
+}
+
+function distToSegment(p: Pt, a: Pt, b: Pt): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
 function FlowArrow({ pts, reversed }: { pts: Pt[]; reversed: boolean }) {

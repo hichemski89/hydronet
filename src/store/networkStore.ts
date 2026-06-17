@@ -88,6 +88,8 @@ interface NetworkState {
   /** Multi-sélection (sélection rectangulaire). */
   selNodes: string[];
   selLinks: string[];
+  /** Lien dont on édite les sommets (null = aucun). */
+  editingVertexLink: string | null;
   view: ViewTransform;
   results: SimulationResults | null;
   currentTimeIndex: number;
@@ -141,6 +143,10 @@ interface NetworkState {
   updateLink: (id: string, patch: Partial<NetworkLink>) => void;
   deleteLink: (id: string) => void;
   reverseLink: (id: string) => void;
+  setEditingVertexLink: (id: string | null) => void;
+  updateLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
+  insertLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
+  deleteLinkVertex: (linkId: string, index: number) => void;
   requestFit: () => void;
   deleteSelection: () => void;
   updateOptions: (patch: Partial<NetworkOptions>) => void;
@@ -291,6 +297,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   selection: null,
   selNodes: [],
   selLinks: [],
+  editingVertexLink: null,
   view: { scale: 1, offsetX: 0, offsetY: 0 },
   results: null,
   currentTimeIndex: 0,
@@ -496,6 +503,56 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   requestFit: () => set((s) => ({ fitRequest: s.fitRequest + 1 })),
 
+  setEditingVertexLink: (editingVertexLink) =>
+    set({ editingVertexLink, selection: editingVertexLink ? { kind: 'link', id: editingVertexLink } : null, selNodes: [], selLinks: [] }),
+
+  updateLinkVertex: (linkId, index, x, y) =>
+    set((s) => {
+      const link = s.network.links[linkId];
+      if (!link || !link.vertices || !link.vertices[index]) return s;
+      const vertices = link.vertices.map((v, i) => (i === index ? { x, y } : v));
+      let updated = { ...link, vertices } as NetworkLink;
+      if (s.autoLength && updated.type === 'pipe') {
+        const tmp = { ...s.network, links: { ...s.network.links, [linkId]: updated } };
+        const len = Math.round(linkModelLength(tmp, updated) * s.metersPerUnit * 100) / 100;
+        if (len > 0) updated = { ...updated, length: len };
+      }
+      return { network: { ...s.network, links: { ...s.network.links, [linkId]: updated } } };
+    }),
+
+  insertLinkVertex: (linkId, index, x, y) => {
+    get().commit();
+    set((s) => {
+      const link = s.network.links[linkId];
+      if (!link) return s;
+      const vertices = [...(link.vertices ?? [])];
+      vertices.splice(Math.max(0, Math.min(index, vertices.length)), 0, { x, y });
+      let updated = { ...link, vertices } as NetworkLink;
+      if (s.autoLength && updated.type === 'pipe') {
+        const tmp = { ...s.network, links: { ...s.network.links, [linkId]: updated } };
+        const len = Math.round(linkModelLength(tmp, updated) * s.metersPerUnit * 100) / 100;
+        if (len > 0) updated = { ...updated, length: len };
+      }
+      return { network: { ...s.network, links: { ...s.network.links, [linkId]: updated } } };
+    });
+  },
+
+  deleteLinkVertex: (linkId, index) => {
+    get().commit();
+    set((s) => {
+      const link = s.network.links[linkId];
+      if (!link || !link.vertices) return s;
+      const vertices = link.vertices.filter((_, i) => i !== index);
+      let updated = { ...link, vertices } as NetworkLink;
+      if (s.autoLength && updated.type === 'pipe') {
+        const tmp = { ...s.network, links: { ...s.network.links, [linkId]: updated } };
+        const len = Math.round(linkModelLength(tmp, updated) * s.metersPerUnit * 100) / 100;
+        if (len > 0) updated = { ...updated, length: len };
+      }
+      return { network: { ...s.network, links: { ...s.network.links, [linkId]: updated } } };
+    });
+  },
+
   updateDisplay: (patch) => set((s) => ({ display: { ...s.display, ...patch } })),
   setDisplayDialogOpen: (displayDialogOpen) => set({ displayDialogOpen }),
 
@@ -685,6 +742,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       selection: null,
       selNodes: [],
       selLinks: [],
+      editingVertexLink: null,
       currentTimeIndex: 0,
       simStatus: 'idle',
       profilePath: [],
