@@ -49,6 +49,9 @@ export default function NetworkCanvas() {
   const setDisplayDialogOpen = useNetworkStore((s) => s.setDisplayDialogOpen);
   const display = useNetworkStore((s) => s.display);
   const backdrop = useNetworkStore((s) => s.backdrop);
+  const definingClip = useNetworkStore((s) => s.definingClip);
+  const setBackdropClip = useNetworkStore((s) => s.setBackdropClip);
+  const setDefiningClip = useNetworkStore((s) => s.setDefiningClip);
   const startLink = useNetworkStore((s) => s.startLink);
   const addLinkVertex = useNetworkStore((s) => s.addLinkVertex);
   const completeLink = useNetworkStore((s) => s.completeLink);
@@ -73,7 +76,7 @@ export default function NetworkCanvas() {
 
   // Suivi des interactions (souris)
   const interaction = useRef<{
-    mode: 'none' | 'pan' | 'dragNode' | 'dragGroup' | 'marquee' | 'maybe';
+    mode: 'none' | 'pan' | 'dragNode' | 'dragGroup' | 'marquee' | 'clipframe' | 'maybe';
     startScreen: Pt;
     lastScreen: Pt;
     lastModel: Pt;
@@ -106,9 +109,10 @@ export default function NetworkCanvas() {
       ys.push(nd.y);
     }
     if (backdrop) {
-      // Bornes « utiles » : ignore les blocs aberrants éloignés
-      xs.push(backdrop.contentBounds.minX, backdrop.contentBounds.maxX);
-      ys.push(backdrop.contentBounds.minY, backdrop.contentBounds.maxY);
+      // Cadre d'affichage prioritaire, sinon bornes « utiles » (aberrants filtrés)
+      const bb = backdrop.clip ?? backdrop.contentBounds;
+      xs.push(bb.minX, bb.maxX);
+      ys.push(bb.minY, bb.maxY);
     }
     if (xs.length === 0) {
       // Réseau vierge : vue centrée par défaut.
@@ -196,6 +200,12 @@ export default function NetworkCanvas() {
     const nodeId = target.getAttribute('data-node');
     const linkId = target.getAttribute('data-link');
 
+    if (definingClip) {
+      interaction.current = { mode: 'clipframe', startScreen: sp, lastScreen: sp, lastModel: sp, moved: false };
+      setMarquee({ x0: sp.x, y0: sp.y, x1: sp.x, y1: sp.y });
+      return;
+    }
+
     if (tool === 'pan' || e.button === 1) {
       interaction.current = { mode: 'pan', startScreen: sp, lastScreen: sp, lastModel: sp, moved: false };
       return;
@@ -245,7 +255,7 @@ export default function NetworkCanvas() {
       setView({ offsetX: view.offsetX + ddx, offsetY: view.offsetY + ddy });
       it.lastScreen = sp;
       it.moved = true;
-    } else if (it.mode === 'marquee') {
+    } else if (it.mode === 'marquee' || it.mode === 'clipframe') {
       setMarquee({ x0: it.startScreen.x, y0: it.startScreen.y, x1: sp.x, y1: sp.y });
       it.moved = true;
     } else if (it.mode === 'dragNode' && it.nodeId) {
@@ -266,6 +276,24 @@ export default function NetworkCanvas() {
     const it = interaction.current;
     svgRef.current?.releasePointerCapture(e.pointerId);
 
+    if (it.mode === 'clipframe') {
+      const a = screenToModel(it.startScreen.x, it.startScreen.y);
+      const sp = getScreenPoint(e);
+      const b = screenToModel(sp.x, sp.y);
+      if (it.moved) {
+        setBackdropClip({
+          minX: Math.min(a.x, b.x),
+          maxX: Math.max(a.x, b.x),
+          minY: Math.min(a.y, b.y),
+          maxY: Math.max(a.y, b.y),
+        });
+      } else {
+        setDefiningClip(false);
+      }
+      setMarquee(null);
+      interaction.current = { ...it, mode: 'none', moved: false };
+      return;
+    }
     if (it.mode === 'marquee') {
       const a = screenToModel(it.startScreen.x, it.startScreen.y);
       const sp = getScreenPoint(e);
@@ -408,6 +436,7 @@ export default function NetworkCanvas() {
       if (e.key === 'Escape') {
         cancelPendingLink();
         clearMultiSelection();
+        if (useNetworkStore.getState().definingClip) setDefiningClip(false);
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (useNetworkStore.getState().selNodes.length || useNetworkStore.getState().selLinks.length)
@@ -417,7 +446,7 @@ export default function NetworkCanvas() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, undo, redo, duplicateSelection]);
+  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, setDefiningClip, undo, redo, duplicateSelection]);
 
   // --- Rendu ---
   const renderLink = (linkId: string) => {
@@ -603,7 +632,7 @@ export default function NetworkCanvas() {
         onPointerUp={onPointerUp}
         onWheel={onWheel}
         onContextMenu={onContextMenu}
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'none', cursor: definingClip ? 'crosshair' : undefined }}
       >
         <rect x={0} y={0} width={size.w} height={size.h} fill="transparent" />
         {backdrop && backdrop.visible && (
@@ -612,7 +641,34 @@ export default function NetworkCanvas() {
             opacity={backdrop.opacity}
             style={{ pointerEvents: 'none' }}
           >
-            {backdropLayer}
+            {backdrop.clip ? (
+              <>
+                <defs>
+                  <clipPath id="bdclip" clipPathUnits="userSpaceOnUse">
+                    <rect
+                      x={backdrop.clip.minX}
+                      y={backdrop.clip.minY}
+                      width={backdrop.clip.maxX - backdrop.clip.minX}
+                      height={backdrop.clip.maxY - backdrop.clip.minY}
+                    />
+                  </clipPath>
+                </defs>
+                <g clipPath="url(#bdclip)">{backdropLayer}</g>
+                <rect
+                  x={backdrop.clip.minX}
+                  y={backdrop.clip.minY}
+                  width={backdrop.clip.maxX - backdrop.clip.minX}
+                  height={backdrop.clip.maxY - backdrop.clip.minY}
+                  fill="none"
+                  stroke="#7c3aed"
+                  strokeWidth={1.4}
+                  strokeDasharray="6 4"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </>
+            ) : (
+              backdropLayer
+            )}
           </g>
         )}
         <g>{Object.keys(network.links).map(renderLink)}</g>
@@ -635,6 +691,11 @@ export default function NetworkCanvas() {
       </svg>
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
+      )}
+      {definingClip && (
+        <div className="clip-banner">
+          Tracez un rectangle pour délimiter la zone du plan à afficher · <kbd>Échap</kbd> pour annuler
+        </div>
       )}
     </>
   );

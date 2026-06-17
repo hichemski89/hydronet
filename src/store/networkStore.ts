@@ -114,6 +114,8 @@ interface NetworkState {
   backdrop: Backdrop | null;
   /** Panneau « Fond de plan » ouvert. */
   backdropPanelOpen: boolean;
+  /** Mode « tracé du cadre d'affichage » actif. */
+  definingClip: boolean;
   /** Échelle : mètres par unité de dessin (pour les longueurs réelles). */
   metersPerUnit: number;
   /** Calcule automatiquement la longueur des conduites depuis le tracé. */
@@ -170,6 +172,8 @@ interface NetworkState {
   toggleLayer: (name: string) => void;
   setAllLayers: (visible: boolean) => void;
   setBackdropPanelOpen: (open: boolean) => void;
+  setDefiningClip: (on: boolean) => void;
+  setBackdropClip: (clip: { minX: number; minY: number; maxX: number; maxY: number } | null) => void;
   setMetersPerUnit: (v: number) => void;
   setAutoLength: (on: boolean) => void;
   recomputeLengths: () => void;
@@ -306,6 +310,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   displayDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
+  definingClip: false,
   metersPerUnit: persistedCad?.metersPerUnit ?? 1,
   autoLength: persistedCad?.autoLength ?? false,
   fitRequest: 0,
@@ -524,6 +529,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         : s,
     ),
   setBackdropPanelOpen: (backdropPanelOpen) => set({ backdropPanelOpen }),
+  setDefiningClip: (definingClip) => set({ definingClip }),
+  setBackdropClip: (clip) =>
+    set((s) =>
+      s.backdrop
+        ? { backdrop: { ...s.backdrop, clip }, definingClip: false, fitRequest: s.fitRequest + 1 }
+        : { definingClip: false },
+    ),
   setMetersPerUnit: (v) => {
     set({ metersPerUnit: v > 0 ? v : 1 });
     if (get().autoLength) get().recomputeLengths();

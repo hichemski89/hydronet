@@ -423,6 +423,29 @@ body {
   color: var(--muted);
 }
 
+/* ---------- Clip frame banner ---------- */
+.clip-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #7c3aed;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+  z-index: 30;
+  pointer-events: none;
+}
+.clip-banner kbd {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: inherit;
+}
+
 /* ---------- Backdrop (DAO) panel ---------- */
 .backdrop-panel {
   position: absolute;

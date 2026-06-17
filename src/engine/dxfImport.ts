@@ -29,6 +29,8 @@ export interface Backdrop {
   bounds: BackdropBounds;
   /** Emprise « utile » (aberrants éloignés filtrés) — pour le zoom étendu. */
   contentBounds: BackdropBounds;
+  /** Cadre d'affichage : seule la zone à l'intérieur est affichée (null = tout). */
+  clip?: BackdropBounds | null;
   /** Échelle : nombre de mètres par unité de dessin (1 = dessin en mètres). */
   metersPerUnit: number;
   visible: boolean;

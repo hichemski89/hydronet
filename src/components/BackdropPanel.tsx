@@ -18,6 +18,8 @@ export default function BackdropPanel() {
   const setAutoLength = useNetworkStore((s) => s.setAutoLength);
   const recomputeLengths = useNetworkStore((s) => s.recomputeLengths);
   const requestFit = useNetworkStore((s) => s.requestFit);
+  const setDefiningClip = useNetworkStore((s) => s.setDefiningClip);
+  const setBackdropClip = useNetworkStore((s) => s.setBackdropClip);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -80,7 +82,25 @@ export default function BackdropPanel() {
 
             <div className="bp-actions">
               <button className="btn btn-sm" onClick={recomputeLengths}>Recalculer longueurs</button>
-              <button className="btn btn-sm" onClick={requestFit}>Recadrer</button>
+              <button className="btn btn-sm" onClick={requestFit}>Zoom étendu</button>
+            </div>
+
+            <div className="bp-actions">
+              <button
+                className="btn btn-sm"
+                onClick={() => {
+                  setDefiningClip(true);
+                  setOpen(false);
+                }}
+                title="Tracer un rectangle pour ne garder que cette zone à l’écran"
+              >
+                ▭ Cadre d’affichage
+              </button>
+              {backdrop.clip && (
+                <button className="btn btn-sm btn-danger" onClick={() => setBackdropClip(null)}>
+                  Supprimer le cadre
+                </button>
+              )}
             </div>
 
             <div className="bp-layers-head">
