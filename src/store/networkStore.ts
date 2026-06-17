@@ -49,6 +49,7 @@ export interface DisplaySettings {
   showNodeLabels: boolean;
   showLinkLabels: boolean;
   showResultValues: boolean;
+  showLinkValues: boolean;
   showFlowArrows: boolean;
   showGrid: boolean;
   nodeSize: number;
@@ -63,6 +64,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   showNodeLabels: true,
   showLinkLabels: false,
   showResultValues: true,
+  showLinkValues: false,
   showFlowArrows: true,
   showGrid: true,
   nodeSize: 8,

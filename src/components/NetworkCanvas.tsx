@@ -539,6 +539,7 @@ export default function NetworkCanvas() {
       width = Math.max(1.5, Math.min(10, link.diameter / 50));
     }
     let flowVal: number | undefined;
+    let linkText: string | null = null;
     if (results && showOverlay) {
       flowVal = linkValue(results, linkId, 'flow', timeIndex);
       if (colorMode === 'compliance' && link.type === 'pipe') {
@@ -549,6 +550,11 @@ export default function NetworkCanvas() {
         if (v != null && isFinite(v)) {
           stroke = colorFor(normalize(Math.abs(v), lDomain));
         }
+      }
+      if (display.showLinkValues) {
+        const metric = colorMode === 'compliance' ? 'velocity' : isNodeMetric(linkMetric) ? 'flow' : linkMetric;
+        const v = linkValue(results, linkId, metric, timeIndex);
+        if (v != null && isFinite(v)) linkText = v.toFixed(2);
       }
     }
     const isSel = (selection?.kind === 'link' && selection.id === linkId) || selLinks.includes(linkId);
@@ -577,6 +583,22 @@ export default function NetworkCanvas() {
         {display.showLinkLabels && (
           <text x={midScreen.x + 6} y={midScreen.y - 6} fontSize={display.labelSize * 0.92} fill="#6b7280" style={{ userSelect: 'none' }}>
             {link.id}
+          </text>
+        )}
+        {/* Valeur du résultat sur la conduite */}
+        {linkText && (
+          <text
+            x={midScreen.x + 6}
+            y={midScreen.y + display.labelSize}
+            fontSize={display.labelSize * 0.92}
+            fontWeight={600}
+            fill="#0f172a"
+            paintOrder="stroke"
+            stroke="#ffffff"
+            strokeWidth={3}
+            style={{ userSelect: 'none' }}
+          >
+            {linkText}
           </text>
         )}
       </g>

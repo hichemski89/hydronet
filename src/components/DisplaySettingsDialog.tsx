@@ -121,6 +121,7 @@ export default function DisplaySettingsDialog() {
 
           <div className="disp-section">Résultats</div>
           <Toggle label="Valeurs aux nœuds (sous le symbole)" checked={display.showResultValues} onChange={(v) => set({ showResultValues: v })} />
+          <Toggle label="Valeurs aux conduites" checked={display.showLinkValues} onChange={(v) => set({ showLinkValues: v })} />
           <Toggle label="Flèches de sens d’écoulement" checked={display.showFlowArrows} onChange={(v) => set({ showFlowArrows: v })} />
           <Slider label="Taille des flèches" value={display.arrowSize} min={3} max={18} step={1} suffix=" px" onChange={(v) => set({ arrowSize: v })} />
 
@@ -150,6 +151,7 @@ function defaultsForReset(): DisplaySettings {
     showNodeLabels: true,
     showLinkLabels: false,
     showResultValues: true,
+    showLinkValues: false,
     showFlowArrows: true,
     showGrid: true,
     nodeSize: 8,
