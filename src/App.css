@@ -836,6 +836,124 @@ body {
   border-radius: 5px;
 }
 
+/* ---------- Curve manager ---------- */
+.curve-modal {
+  width: 720px;
+  max-width: calc(100vw - 24px);
+}
+.curve-body {
+  display: flex;
+  gap: 14px;
+  padding: 14px 18px;
+  min-height: 360px;
+}
+.curve-list {
+  width: 180px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.curve-list-items {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+}
+.curve-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  border: none;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.curve-item:hover {
+  background: var(--bg);
+}
+.curve-item.active {
+  background: #dbeafe;
+}
+.curve-item span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.curve-add {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+}
+.curve-add select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+}
+.curve-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.curve-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+}
+.curve-cols2 {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 220px;
+  margin-top: 6px;
+}
+.curve-points {
+  width: 200px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.curve-pts-head,
+.curve-pt-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 24px;
+  gap: 6px;
+  align-items: center;
+}
+.curve-pts-head {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.curve-pts-rows {
+  overflow-y: auto;
+  max-height: 230px;
+}
+.curve-pt-row {
+  margin-bottom: 5px;
+}
+.curve-pt-row input {
+  width: 100%;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.curve-plot {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+}
+
 /* ---------- Context menu ---------- */
 .context-menu {
   position: fixed;

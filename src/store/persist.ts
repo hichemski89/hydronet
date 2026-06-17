@@ -13,6 +13,7 @@ export function loadPersistedNetwork(): Network | null {
     net.options = { ...DEFAULT_OPTIONS, ...net.options };
     net.criteria = { ...DEFAULT_CRITERIA, ...net.criteria };
     net.patterns ??= {};
+    net.curves ??= {};
     net.controls ??= [];
     return net;
   } catch {

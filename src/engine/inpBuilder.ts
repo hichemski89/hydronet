@@ -53,12 +53,13 @@ export function buildInp(network: Network): string {
   L.push('');
 
   L.push('[TANKS]');
-  L.push(';ID\tElev\tInitLvl\tMinLvl\tMaxLvl\tDiam\tMinVol');
+  L.push(';ID\tElev\tInitLvl\tMinLvl\tMaxLvl\tDiam\tMinVol\tVolCurve');
   for (const t of tanks) {
+    const volCurve = t.volumeCurve && network.curves[t.volumeCurve] ? t.volumeCurve : '';
     L.push(
       `${t.id}\t${n(t.elevation)}\t${n(t.initLevel)}\t${n(t.minLevel)}\t${n(t.maxLevel)}\t${n(
         t.diameter,
-      )}\t${n(t.minVolume ?? 0)}`,
+      )}\t${n(t.minVolume ?? 0)}\t${volCurve}`.trimEnd(),
     );
   }
   L.push('');
@@ -93,6 +94,9 @@ export function buildInp(network: Network): string {
     let params: string;
     if (pu.mode === 'power' && pu.power != null) {
       params = `POWER ${n(pu.power)}`;
+    } else if (pu.headCurve && network.curves[pu.headCurve]) {
+      // Référence vers une courbe de la bibliothèque
+      params = `HEAD ${pu.headCurve}`;
     } else {
       const curveId = `C_${pu.id}`;
       const pts =
@@ -108,7 +112,9 @@ export function buildInp(network: Network): string {
     L.push(`${pu.id}\t${pu.node1}\t${pu.node2}\t${params}`);
 
     // Données énergétiques
-    if (pu.efficiency != null && pu.efficiency > 0) {
+    if (pu.efficiencyCurve && network.curves[pu.efficiencyCurve]) {
+      energyLines.push(`PUMP ${pu.id} EFFIC ${pu.efficiencyCurve}`);
+    } else if (pu.efficiency != null && pu.efficiency > 0) {
       const eid = `E_${pu.id}`;
       const q = pu.designFlow ?? pu.curve?.[Math.floor((pu.curve.length - 1) / 2)]?.flow ?? 50;
       curveLines.push(`;EFFICIENCY: ${pu.id}`);
@@ -147,7 +153,13 @@ export function buildInp(network: Network): string {
   L.push('');
 
   L.push('[CURVES]');
-  L.push(';ID\tFlow\tValue');
+  L.push(';ID\tX-Value\tY-Value');
+  // Bibliothèque de courbes (typées via commentaire)
+  for (const c of Object.values(network.curves ?? {})) {
+    L.push(`;${c.type}: ${c.description || c.id}`);
+    for (const p of c.points) L.push(`${c.id}\t${n(p.x)}\t${n(p.y)}`);
+  }
+  // Courbes générées pour les pompes sans référence de bibliothèque
   for (const c of curveLines) L.push(c);
   L.push('');
 

@@ -40,6 +40,7 @@ export default function Toolbar() {
   const newNetwork = useNetworkStore((s) => s.newNetwork);
   const loadNetwork = useNetworkStore((s) => s.loadNetwork);
   const setBackdropPanelOpen = useNetworkStore((s) => s.setBackdropPanelOpen);
+  const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -161,6 +162,13 @@ export default function Toolbar() {
           title="Fond de plan DAO : import DXF, calques, échelle…"
         >
           <PlanIcon size={16} /> Fond de plan
+        </button>
+        <button
+          className="btn"
+          onClick={() => setCurveDialogOpen(true)}
+          title="Bibliothèque de courbes (caractéristique, rendement, volume…)"
+        >
+          📈 Courbes
         </button>
         <span className="toolbar-sep-v" />
         <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="Annuler (Ctrl+Z)">

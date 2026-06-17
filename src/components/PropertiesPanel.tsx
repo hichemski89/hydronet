@@ -9,6 +9,7 @@ import {
   ValveKind,
   LinkStatus,
   PumpMode,
+  CurveType,
 } from '../types/network';
 import { flowUnitLabel } from '../utils/format';
 import {
@@ -214,6 +215,7 @@ export default function PropertiesPanel() {
             <Field label="Niveau min" unit={lenU} value={(node as Tank).minLevel} onChange={(v) => updateNode(node.id, { minLevel: v })} />
             <Field label="Niveau max" unit={lenU} value={(node as Tank).maxLevel} onChange={(v) => updateNode(node.id, { maxLevel: v })} />
             <Field label="Diamètre" unit={lenU} value={(node as Tank).diameter} onChange={(v) => updateNode(node.id, { diameter: v })} />
+            <CurveSelect label="Courbe volume (niveau→volume)" type="VOLUME" value={(node as Tank).volumeCurve} onChange={(v) => updateNode(node.id, { volumeCurve: v })} />
           </>
         )}
         <div className="coords-hint">
@@ -264,7 +266,10 @@ export default function PropertiesPanel() {
             </select>
           </label>
           {(link as Pump).mode === 'head' ? (
-            <PumpCurveEditor pump={link as Pump} flowU={flowU} lenU={lenU} />
+            <>
+              <CurveSelect label="Courbe caractéristique (bibliothèque)" type="PUMP" value={(link as Pump).headCurve} onChange={(v) => updateLink(link.id, { headCurve: v })} />
+              {!(link as Pump).headCurve && <PumpCurveEditor pump={link as Pump} flowU={flowU} lenU={lenU} />}
+            </>
           ) : (
             <Field label="Puissance nominale" unit="kW" value={(link as Pump).power ?? 0} onChange={(v) => updateLink(link.id, { power: v })} />
           )}
@@ -281,7 +286,10 @@ export default function PropertiesPanel() {
               <option value="CLOSED">Arrêt</option>
             </select>
           </label>
-          <Field label="Rendement" unit="%" value={(link as Pump).efficiency ?? 0} step={1} onChange={(v) => updateLink(link.id, { efficiency: v })} />
+          <CurveSelect label="Courbe rendement (bibliothèque)" type="EFFICIENCY" value={(link as Pump).efficiencyCurve} onChange={(v) => updateLink(link.id, { efficiencyCurve: v })} />
+          {!(link as Pump).efficiencyCurve && (
+            <Field label="Rendement" unit="%" value={(link as Pump).efficiency ?? 0} step={1} onChange={(v) => updateLink(link.id, { efficiency: v })} />
+          )}
           <Field label="Prix de l’énergie" value={(link as Pump).energyPrice ?? 0} step={0.01} onChange={(v) => updateLink(link.id, { energyPrice: v })} />
           <PatternSelect label="Courbe modul. prix" value={(link as Pump).pricePattern} onChange={(p) => updateLink(link.id, { pricePattern: p })} />
         </>
@@ -338,6 +346,46 @@ function PatternSelect({
           </option>
         ))}
       </select>
+    </label>
+  );
+}
+
+function CurveSelect({
+  label,
+  type,
+  value,
+  onChange,
+}: {
+  label: string;
+  type: CurveType;
+  value?: string;
+  onChange: (v: string | undefined) => void;
+}) {
+  const curves = useNetworkStore((s) => s.network.curves);
+  const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
+  const list = Object.values(curves).filter((c) => c.type === type);
+  return (
+    <label className="field">
+      <span className="field-label">{label}</span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <select
+          value={value ?? ''}
+          onFocus={() => useNetworkStore.getState().commit()}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          style={{ flex: 1 }}
+        >
+          <option value="">— Aucune —</option>
+          {list.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.id}
+              {c.description ? ` (${c.description})` : ''}
+            </option>
+          ))}
+        </select>
+        <button className="btn btn-sm" type="button" title="Gérer les courbes" onClick={() => setCurveDialogOpen(true)}>
+          📈
+        </button>
+      </div>
     </label>
   );
 }

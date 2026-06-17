@@ -11,6 +11,8 @@ import {
   NetworkOptions,
   ComplianceCriteria,
   SimpleControl,
+  Curve,
+  CurveType,
   DEFAULT_OPTIONS,
   DEFAULT_CRITERIA,
 } from '../types/network';
@@ -161,6 +163,12 @@ interface NetworkState {
   addControl: () => void;
   updateControl: (id: string, patch: Partial<SimpleControl>) => void;
   deleteControl: (id: string) => void;
+  curveDialogOpen: boolean;
+  setCurveDialogOpen: (open: boolean) => void;
+  addCurve: (type: CurveType) => string;
+  updateCurve: (id: string, patch: Partial<Curve>) => void;
+  renameCurve: (id: string, newId: string) => void;
+  deleteCurve: (id: string) => void;
   setResults: (results: SimulationResults | null) => void;
   setSimStatus: (status: NetworkState['simStatus'], error?: string | null) => void;
   setCurrentTimeIndex: (i: number) => void;
@@ -204,6 +212,7 @@ function emptyNetwork(): Network {
     nodes: {},
     links: {},
     patterns: {},
+    curves: {},
     options: { ...DEFAULT_OPTIONS },
     criteria: { ...DEFAULT_CRITERIA },
     controls: [],
@@ -321,6 +330,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   gridSize: 20,
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
+  curveDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
   definingClip: false,
@@ -674,6 +684,74 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     set((s) => ({
       network: { ...s.network, controls: s.network.controls.filter((c) => c.id !== id) },
     }));
+  },
+
+  setCurveDialogOpen: (curveDialogOpen) => set({ curveDialogOpen }),
+
+  addCurve: (type) => {
+    const s = get();
+    let i = 1;
+    while (s.network.curves[`C${i}`]) i++;
+    const id = `C${i}`;
+    const defaultPts =
+      type === 'PUMP'
+        ? [{ x: 0, y: 60 }, { x: 50, y: 45 }, { x: 100, y: 0 }]
+        : type === 'EFFICIENCY'
+          ? [{ x: 0, y: 0 }, { x: 50, y: 75 }, { x: 100, y: 0 }]
+          : type === 'VOLUME'
+            ? [{ x: 0, y: 0 }, { x: 5, y: 500 }, { x: 10, y: 1000 }]
+            : [{ x: 0, y: 0 }, { x: 50, y: 5 }, { x: 100, y: 20 }];
+    get().commit();
+    set((st) => ({
+      network: {
+        ...st.network,
+        curves: { ...st.network.curves, [id]: { id, type, description: '', points: defaultPts } },
+      },
+    }));
+    return id;
+  },
+
+  updateCurve: (id, patch) =>
+    set((s) => {
+      const c = s.network.curves[id];
+      if (!c) return s;
+      return { network: { ...s.network, curves: { ...s.network.curves, [id]: { ...c, ...patch } } } };
+    }),
+
+  renameCurve: (id, newId) =>
+    set((s) => {
+      const c = s.network.curves[id];
+      if (!c || !newId || newId === id || s.network.curves[newId]) return s;
+      const curves = { ...s.network.curves };
+      delete curves[id];
+      curves[newId] = { ...c, id: newId };
+      // met à jour les références
+      const links = { ...s.network.links };
+      for (const lid of Object.keys(links)) {
+        const lk = links[lid];
+        if (lk.type === 'pump' && (lk.headCurve === id || lk.efficiencyCurve === id)) {
+          links[lid] = {
+            ...lk,
+            headCurve: lk.headCurve === id ? newId : lk.headCurve,
+            efficiencyCurve: lk.efficiencyCurve === id ? newId : lk.efficiencyCurve,
+          };
+        }
+      }
+      const nodes = { ...s.network.nodes };
+      for (const nid of Object.keys(nodes)) {
+        const nd = nodes[nid];
+        if (nd.type === 'tank' && nd.volumeCurve === id) nodes[nid] = { ...nd, volumeCurve: newId };
+      }
+      return { network: { ...s.network, curves, links, nodes } };
+    }),
+
+  deleteCurve: (id) => {
+    get().commit();
+    set((s) => {
+      const curves = { ...s.network.curves };
+      delete curves[id];
+      return { network: { ...s.network, curves } };
+    });
   },
 
   setResults: (results) =>

@@ -10,6 +10,7 @@ import ProfileChart from './components/ProfileChart';
 import ZoomControls from './components/ZoomControls';
 import BackdropPanel from './components/BackdropPanel';
 import DisplaySettingsDialog from './components/DisplaySettingsDialog';
+import CurveManager from './components/CurveManager';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -39,6 +40,7 @@ export default function App() {
       </div>
       <StatusBar />
       <DisplaySettingsDialog />
+      <CurveManager />
     </div>
   );
 }

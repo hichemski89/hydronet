@@ -11,6 +11,8 @@ import {
   ValveKind,
   LinkStatus,
   Pattern,
+  Curve,
+  CurveType,
   SimpleControl,
   FlowUnit,
   HeadlossFormula,
@@ -56,6 +58,11 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
 
   // Tampon brut des pompes (les courbes peuvent être définies après).
   const pumpRaw: { id: string; n1: string; n2: string; params: string[] }[] = [];
+  const curveTypes: Record<string, CurveType> = {};
+  const curveDesc: Record<string, string> = {};
+  const tankVolCurve: Record<string, string> = {};
+  let pendingCurveType: CurveType | null = null;
+  let pendingCurveDesc = '';
 
   const lines = text.split(/\r?\n/);
   let section = '';
@@ -71,6 +78,15 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
     if (section === 'TITLE') {
       const t = raw.split(';')[0].trim();
       if (t && !title) title = t;
+      continue;
+    }
+    // Marqueurs de type de courbe (commentaires précédant une courbe)
+    if (section === 'CURVES' && trimmed.startsWith(';')) {
+      const m = trimmed.match(/^;\s*(PUMP|EFFICIENCY|VOLUME|HEADLOSS)\s*:?\s*(.*)$/i);
+      if (m) {
+        pendingCurveType = m[1].toUpperCase() as CurveType;
+        pendingCurveDesc = m[2].trim();
+      }
       continue;
     }
     const tk = tokenize(raw);
@@ -103,7 +119,8 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
         break;
       }
       case 'TANKS': {
-        const [id, elev, init, min, max, diam, minvol] = tk;
+        const [id, elev, init, min, max, diam, minvol, volcurve] = tk;
+        if (volcurve) tankVolCurve[id] = volcurve;
         nodes[id] = {
           id,
           type: 'tank',
@@ -170,6 +187,14 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
       }
       case 'CURVES': {
         const [id, x, y] = tk;
+        if (!curves[id]) {
+          if (pendingCurveType) {
+            curveTypes[id] = pendingCurveType;
+            curveDesc[id] = pendingCurveDesc;
+          }
+          pendingCurveType = null;
+          pendingCurveDesc = '';
+        }
         (curves[id] ??= []).push({ x: num(x), y: num(y) });
         break;
       }
@@ -268,10 +293,10 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
         i++;
       } else if (kw === 'HEAD') {
         pump.mode = 'head';
+        pump.headCurve = val;
+        curveTypes[val] = curveTypes[val] ?? 'PUMP';
         const curve = curves[val];
         if (curve && curve.length) {
-          pump.curve = curve.map((p) => ({ flow: p.x, head: p.y }));
-          // Point milieu comme point nominal représentatif (affichage).
           const mid = curve[Math.floor(curve.length / 2)];
           pump.designFlow = mid.x;
           pump.designHead = mid.y;
@@ -290,6 +315,8 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
       if (ed.price != null) pump.energyPrice = ed.price;
       if (ed.pricePattern) pump.pricePattern = ed.pricePattern;
       if (ed.efficCurve && curves[ed.efficCurve]?.length) {
+        pump.efficiencyCurve = ed.efficCurve;
+        curveTypes[ed.efficCurve] = 'EFFICIENCY';
         const ys = curves[ed.efficCurve].map((p) => p.y);
         pump.efficiency = Math.round((ys.reduce((a, b) => a + b, 0) / ys.length) * 10) / 10;
       }
@@ -318,6 +345,24 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
     }
   }
 
+  // Courbes de volume des réservoirs
+  for (const [tankId, cid] of Object.entries(tankVolCurve)) {
+    const nd = nodes[tankId];
+    if (nd && nd.type === 'tank') (nd as Tank).volumeCurve = cid;
+    if (curves[cid]) curveTypes[cid] = 'VOLUME';
+  }
+
+  // Construction de la bibliothèque de courbes typées
+  const curveLib: Record<string, Curve> = {};
+  for (const [id, pts] of Object.entries(curves)) {
+    curveLib[id] = {
+      id,
+      type: curveTypes[id] ?? 'PUMP',
+      description: curveDesc[id] || undefined,
+      points: pts.map((p) => ({ x: p.x, y: p.y })),
+    };
+  }
+
   // Si aucune coordonnée n'est fournie, disposition automatique en grille.
   const anyCoord = Object.keys(coords).length > 0;
   if (!anyCoord) autoLayout(nodes, links);
@@ -332,6 +377,7 @@ export function parseInp(text: string, fallbackName = 'Réseau importé'): Netwo
     nodes,
     links,
     patterns,
+    curves: curveLib,
     options,
     criteria: { ...DEFAULT_CRITERIA },
     controls,

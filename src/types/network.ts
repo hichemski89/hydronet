@@ -40,6 +40,8 @@ export interface Tank extends BaseNode {
   maxLevel: number;
   diameter: number;
   minVolume?: number;
+  /** Référence vers une courbe volume (niveau → volume) de la bibliothèque. */
+  volumeCurve?: string;
 }
 
 export type NetworkNode = Junction | Reservoir | Tank;
@@ -89,6 +91,10 @@ export interface Pump extends BaseLink {
   curve?: PumpCurvePoint[];
   status: LinkStatus;
   speed?: number;
+  /** Référence vers une courbe caractéristique de la bibliothèque (prioritaire). */
+  headCurve?: string;
+  /** Référence vers une courbe de rendement de la bibliothèque. */
+  efficiencyCurve?: string;
   /** Courbe de modulation de la vitesse (motif appliqué à la vitesse au fil du temps). */
   speedPattern?: string;
   /** Rendement constant (%). */
@@ -132,6 +138,28 @@ export interface Pattern {
   id: string;
   multipliers: number[];
 }
+
+export type CurveType = 'PUMP' | 'EFFICIENCY' | 'VOLUME' | 'HEADLOSS';
+
+export interface CurvePoint {
+  x: number;
+  y: number;
+}
+
+/** Courbe nommée de la bibliothèque (caractéristique, rendement, volume, perte de charge). */
+export interface Curve {
+  id: string;
+  type: CurveType;
+  description?: string;
+  points: CurvePoint[];
+}
+
+export const CURVE_TYPE_LABELS: Record<CurveType, string> = {
+  PUMP: 'Caractéristique (débit → hauteur)',
+  EFFICIENCY: 'Rendement (débit → %)',
+  VOLUME: 'Volume (niveau → volume)',
+  HEADLOSS: 'Perte de charge (débit → perte)',
+};
 
 /** Contrôle simple : agit sur un lien selon le niveau d'un nœud ou l'heure. */
 export interface SimpleControl {
@@ -181,6 +209,7 @@ export interface Network {
   nodes: Record<string, NetworkNode>;
   links: Record<string, NetworkLink>;
   patterns: Record<string, Pattern>;
+  curves: Record<string, Curve>;
   options: NetworkOptions;
   criteria: ComplianceCriteria;
   controls: SimpleControl[];
