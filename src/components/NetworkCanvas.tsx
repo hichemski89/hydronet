@@ -359,7 +359,7 @@ export default function NetworkCanvas() {
     e.preventDefault();
     const sp = getScreenPoint(e);
     const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-    const newScale = Math.max(0.05, Math.min(20, view.scale * factor));
+    const newScale = Math.max(0.001, Math.min(100000, view.scale * factor));
     // Zoom centré sur le curseur
     const mp = screenToModel(sp.x, sp.y);
     setView({

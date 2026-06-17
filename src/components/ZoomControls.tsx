@@ -12,7 +12,7 @@ export default function ZoomControls() {
     const rect = vp.getBoundingClientRect();
     const cx = rect.width / 2;
     const cy = rect.height / 2;
-    const newScale = Math.max(0.05, Math.min(20, view.scale * factor));
+    const newScale = Math.max(0.001, Math.min(100000, view.scale * factor));
     // Point modèle sous le centre, conservé après zoom
     const mx = (cx - view.offsetX) / view.scale;
     const my = -(cy - view.offsetY) / view.scale;
