@@ -20,7 +20,7 @@ import {
   materialRoughness,
   minBendRadiusMeters,
 } from '../data/pipeCatalog';
-import { fittingsMinorLoss, bendViolations, effectiveBendRadius } from '../utils/pipeGeometry';
+import { pipeFittingsLoss, bendViolations, effectiveBendRadius, vertexDeflection } from '../utils/pipeGeometry';
 
 function Field({
   label,
@@ -359,7 +359,7 @@ function PipeBendInfo({ pipe }: { pipe: Pipe }) {
   const setPipeVertexRadius = useNetworkStore((s) => s.setPipeVertexRadius);
   const commit = useNetworkStore((s) => s.commit);
   const minRm = minBendRadiusMeters(pipe.material, pipe.dn);
-  const fK = fittingsMinorLoss(pipe);
+  const fK = pipeFittingsLoss(network, pipe);
   let viol = 0;
   if (minRm != null && pipe.vertices?.length) {
     const a = network.nodes[pipe.node1];
@@ -387,7 +387,12 @@ function PipeBendInfo({ pipe }: { pipe: Pipe }) {
             pipe.fittings?.[vi] ? (
               <div className="vradius-row" key={vi}>
                 <span>Sommet {vi + 1}</span>
-                <span className="vradius-elbow">coude {pipe.fittings[vi] === 'E90' ? '90°' : '45°'}</span>
+                <span className="vradius-elbow">
+                  coude{(() => {
+                    const ang = vertexDeflection(network, pipe, vi);
+                    return ang != null ? ` ${ang.toFixed(ang % 1 ? 1 : 0)}°` : '';
+                  })()}
+                </span>
               </div>
             ) : (
               <div className="vradius-row" key={vi}>

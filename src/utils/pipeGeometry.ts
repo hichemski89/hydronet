@@ -1,26 +1,55 @@
-import { Pipe } from '../types/network';
+import { Pipe, Network } from '../types/network';
 
 export interface Pt {
   x: number;
   y: number;
 }
 
-/** Coefficients de perte de charge singulière des coudes. */
-export const FITTING_K: Record<'E90' | 'E45', number> = {
-  E90: 0.9,
-  E45: 0.4,
-};
+// Coefficient K d'un coude selon l'angle de déviation (interpolation linéaire).
+const K_ANCHORS: [number, number][] = [
+  [0, 0],
+  [22.5, 0.2],
+  [45, 0.4],
+  [90, 0.9],
+];
 
-export const FITTING_LABEL: Record<'E90' | 'E45', string> = {
-  E90: 'Coude 90°',
-  E45: 'Coude 45°',
-};
+/** Perte de charge singulière K d'un coude pour un angle de déviation (degrés). */
+export function elbowK(angleDeg: number): number {
+  const a = Math.abs(angleDeg);
+  if (a <= 0) return 0;
+  for (let i = 1; i < K_ANCHORS.length; i++) {
+    if (a <= K_ANCHORS[i][0]) {
+      const [x0, y0] = K_ANCHORS[i - 1];
+      const [x1, y1] = K_ANCHORS[i];
+      return y0 + ((y1 - y0) * (a - x0)) / (x1 - x0);
+    }
+  }
+  // au-delà de 90° : pente du dernier segment
+  const [x0, y0] = K_ANCHORS[K_ANCHORS.length - 2];
+  const [x1, y1] = K_ANCHORS[K_ANCHORS.length - 1];
+  return y1 + ((y1 - y0) / (x1 - x0)) * (a - x1);
+}
 
-/** Somme des pertes singulières des coudes d'une conduite. */
-export function fittingsMinorLoss(pipe: Pipe): number {
+/** Angle de déviation (degrés) au sommet `vertexIndex` d'une conduite, ou null. */
+export function vertexDeflection(network: Network, pipe: Pipe, vertexIndex: number): number | null {
+  const a = network.nodes[pipe.node1];
+  const b = network.nodes[pipe.node2];
+  if (!a || !b || !pipe.vertices) return null;
+  const pts = [a, ...pipe.vertices, b];
+  const i = vertexIndex + 1;
+  if (i < 1 || i > pts.length - 2) return null;
+  return turnAngleDeg(pts[i], pts[i - 1], pts[i + 1]);
+}
+
+/** Somme des pertes singulières des coudes (K selon l'angle réel de chaque sommet). */
+export function pipeFittingsLoss(network: Network, pipe: Pipe): number {
   if (!pipe.fittings) return 0;
   let k = 0;
-  for (const kind of Object.values(pipe.fittings)) k += FITTING_K[kind] ?? 0;
+  for (const key of Object.keys(pipe.fittings)) {
+    if (!pipe.fittings[key]) continue;
+    const ang = vertexDeflection(network, pipe, Number(key));
+    if (ang != null) k += elbowK(ang);
+  }
   return k;
 }
 

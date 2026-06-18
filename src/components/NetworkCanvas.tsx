@@ -10,7 +10,7 @@ import {
   linkDomain,
 } from '../utils/resultsAccess';
 import { pressureStatus, velocityStatus, STATUS_COLOR } from '../utils/compliance';
-import { roundedPath, bendViolations, effectiveBendRadius, snapDrawPoint, turnAngleDeg } from '../utils/pipeGeometry';
+import { roundedPath, bendViolations, effectiveBendRadius, snapDrawPoint, turnAngleDeg, vertexDeflection } from '../utils/pipeGeometry';
 import { minBendRadiusMeters } from '../data/pipeCatalog';
 import ContextMenu, { MenuItem } from './ContextMenu';
 
@@ -432,6 +432,8 @@ export default function NetworkCanvas() {
       } else if (pendingLink) {
         const v = snapPendingCursor(mp);
         addLinkVertex(v.x, v.y);
+        // Sous angles normalisés, le sommet posé est un coude (coin vif, pas de rayon)
+        if (angleSnap) setPendingLastFitting(true);
       }
       return;
     }
@@ -550,11 +552,10 @@ export default function NetworkCanvas() {
       items = [];
       if (pendingLink.type === 'pipe' && hasV) {
         const last = pendingLink.vertices.length - 1;
-        const cur = pendingLink.fittings[last];
+        const cur = !!pendingLink.fittings[last];
         items.push(
-          { label: `Dernier sommet : Coude 90°${cur === 'E90' ? ' ✓' : ''}`, icon: '⌐', onClick: () => setPendingLastFitting('E90') },
-          { label: `Dernier sommet : Coude 45°${cur === 'E45' ? ' ✓' : ''}`, icon: '⌐', onClick: () => setPendingLastFitting('E45') },
-          { label: `Dernier sommet : courbure libre${cur ? '' : ' ✓'}`, onClick: () => setPendingLastFitting(null) },
+          { label: `Dernier sommet : coude (coin vif)${cur ? ' ✓' : ''}`, icon: '⌐', onClick: () => setPendingLastFitting(true) },
+          { label: `Dernier sommet : courbure (rayon)${!cur ? ' ✓' : ''}`, onClick: () => setPendingLastFitting(false) },
           { type: 'separator' },
         );
       }
@@ -568,10 +569,11 @@ export default function NetworkCanvas() {
       const lk = network.links[editingVertexLink];
       items = [];
       if (lk?.type === 'pipe') {
+        const isElbow = !!lk.fittings?.[idx];
         items.push(
-          { label: 'Coude 90°', icon: '⌐', onClick: () => setPipeFitting(editingVertexLink, idx, 'E90') },
-          { label: 'Coude 45°', icon: '⌐', onClick: () => setPipeFitting(editingVertexLink, idx, 'E45') },
-          { label: 'Retirer le coude (courbure libre)', onClick: () => setPipeFitting(editingVertexLink, idx, null) },
+          isElbow
+            ? { label: 'Retirer le coude (courbure)', icon: '⌐', onClick: () => setPipeFitting(editingVertexLink, idx, false) }
+            : { label: 'Poser un coude (coin vif)', icon: '⌐', onClick: () => setPipeFitting(editingVertexLink, idx, true) },
           { type: 'separator' },
         );
       }
@@ -751,15 +753,17 @@ export default function NetworkCanvas() {
             {linkText}
           </text>
         )}
-        {/* Marqueurs de coude */}
-        {Object.entries(fittings).map(([vi, kind]) => {
+        {/* Marqueurs de coude (angle réel) */}
+        {Object.entries(fittings).map(([vi, on]) => {
+          if (!on) return null;
           const sp = interiorScreen[Number(vi)];
           if (!sp) return null;
+          const ang = link.type === 'pipe' ? vertexDeflection(network, link, Number(vi)) : null;
           return (
             <g key={`f${vi}`}>
               <rect x={sp.x - 5} y={sp.y - 5} width={10} height={10} rx={2} transform={`rotate(45 ${sp.x} ${sp.y})`} fill="#fde68a" stroke="#b45309" strokeWidth={1.4} />
               <text x={sp.x} y={sp.y - 8} fontSize={9} fontWeight={700} textAnchor="middle" fill="#b45309" style={{ userSelect: 'none' }}>
-                {kind === 'E90' ? '90°' : '45°'}
+                {ang != null ? `${ang.toFixed(ang % 1 ? 1 : 0)}°` : '⌐'}
               </text>
             </g>
           );
@@ -978,15 +982,18 @@ export default function NetworkCanvas() {
             {violations.length ? ' ⚠ trop serré' : ''}
           </text>
         )}
-        {/* Coudes posés à la volée */}
-        {Object.entries(pendFit).map(([vi, kind]) => {
-          const sp = pts[Number(vi) + 1];
+        {/* Coudes posés à la volée (angle en direct) */}
+        {Object.entries(pendFit).map(([vi, on]) => {
+          if (!on) return null;
+          const k = Number(vi);
+          const sp = pts[k + 1];
           if (!sp) return null;
+          const ang = turnAngleDeg(modelPts[k + 1], modelPts[k], modelPts[k + 2]);
           return (
             <g key={`pf${vi}`}>
               <rect x={sp.x - 5} y={sp.y - 5} width={10} height={10} rx={2} transform={`rotate(45 ${sp.x} ${sp.y})`} fill="#fde68a" stroke="#b45309" strokeWidth={1.4} />
               <text x={sp.x} y={sp.y - 8} fontSize={9} fontWeight={700} textAnchor="middle" fill="#b45309" style={{ userSelect: 'none' }}>
-                {kind === 'E90' ? '90°' : '45°'}
+                {ang != null ? `${ang.toFixed(ang % 1 ? 1 : 0)}°` : '⌐'}
               </text>
             </g>
           );

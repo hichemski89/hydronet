@@ -90,8 +90,8 @@ interface PendingLink {
   type: LinkType;
   node1: string;
   vertices: { x: number; y: number }[];
-  /** Coudes posés à la volée pendant le tracé (index de sommet → type). */
-  fittings: Record<number, 'E90' | 'E45'>;
+  /** Sommets marqués comme coudes pendant le tracé (coin vif). */
+  fittings: Record<number, boolean>;
 }
 
 interface NetworkState {
@@ -158,7 +158,7 @@ interface NetworkState {
   addLinkVertex: (x: number, y: number) => void;
   completeLink: (node2: string) => void;
   cancelPendingLink: () => void;
-  setPendingLastFitting: (kind: 'E90' | 'E45' | null) => void;
+  setPendingLastFitting: (on: boolean) => void;
   removeLastPendingVertex: () => void;
   updateLink: (id: string, patch: Partial<NetworkLink>) => void;
   deleteLink: (id: string) => void;
@@ -167,7 +167,7 @@ interface NetworkState {
   updateLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
   insertLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
   deleteLinkVertex: (linkId: string, index: number) => void;
-  setPipeFitting: (linkId: string, vertexIndex: number, kind: 'E90' | 'E45' | null) => void;
+  setPipeFitting: (linkId: string, vertexIndex: number, on: boolean) => void;
   setPipeVertexRadius: (linkId: string, vertexIndex: number, radiusMeters: number) => void;
   setDefaultPipe: (patch: Partial<{ material: string; dn: number; pn: number }>) => void;
   setAngleSnap: (on: boolean) => void;
@@ -476,14 +476,14 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         : s,
     ),
 
-  setPendingLastFitting: (kind) =>
+  setPendingLastFitting: (on) =>
     set((s) => {
       const p = s.pendingLink;
       if (!p || p.vertices.length === 0) return s;
       const last = p.vertices.length - 1;
       const fittings = { ...p.fittings };
-      if (kind === null) delete fittings[last];
-      else fittings[last] = kind;
+      if (!on) delete fittings[last];
+      else fittings[last] = true;
       return { pendingLink: { ...p, fittings } };
     }),
 
@@ -517,9 +517,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         }
         // Coudes posés pendant le tracé
         if (Object.keys(p.fittings).length) {
-          const f: Record<string, 'E90' | 'E45'> = {};
+          const f: Record<string, boolean> = {};
           for (const [k, v] of Object.entries(p.fittings)) {
-            if (Number(k) < (link.vertices?.length ?? 0)) f[k] = v;
+            if (v && Number(k) < (link.vertices?.length ?? 0)) f[k] = true;
           }
           if (Object.keys(f).length) link.fittings = f;
         }
@@ -614,14 +614,14 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     });
   },
 
-  setPipeFitting: (linkId, vertexIndex, kind) => {
+  setPipeFitting: (linkId, vertexIndex, on) => {
     get().commit();
     set((s) => {
       const link = s.network.links[linkId];
       if (!link || link.type !== 'pipe') return s;
       const fittings = { ...(link.fittings ?? {}) };
-      if (kind === null) delete fittings[vertexIndex];
-      else fittings[vertexIndex] = kind;
+      if (!on) delete fittings[vertexIndex];
+      else fittings[vertexIndex] = true;
       return {
         network: { ...s.network, links: { ...s.network.links, [linkId]: { ...link, fittings } } },
       };

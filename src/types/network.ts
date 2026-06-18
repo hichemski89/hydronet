@@ -65,8 +65,8 @@ export interface Pipe extends BaseLink {
   roughness: number;
   minorLoss: number;
   status: LinkStatus;
-  /** Coudes (accessoires) par index de sommet : 'E90' (90°) ou 'E45' (45°). */
-  fittings?: Record<string, 'E90' | 'E45'>;
+  /** Sommets marqués comme coudes (coin vif). La perte de charge K dépend de l'angle réel. */
+  fittings?: Record<string, boolean>;
   /** Rayon de courbure par sommet (m), index de sommet → rayon. Défaut = rayon mini. */
   bendRadii?: Record<string, number>;
   // --- Référence catalogue (optionnelle) ---

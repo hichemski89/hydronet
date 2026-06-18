@@ -1,5 +1,5 @@
 import { Network, Junction, Reservoir, Tank, Pipe, Pump, Valve } from '../types/network';
-import { fittingsMinorLoss } from '../utils/pipeGeometry';
+import { pipeFittingsLoss } from '../utils/pipeGeometry';
 
 /** Formate un nombre pour le fichier .inp (évite la notation exponentielle excessive). */
 function n(v: number): string {
@@ -78,7 +78,7 @@ export function buildInp(network: Network): string {
   L.push('[PIPES]');
   L.push(';ID\tNode1\tNode2\tLength\tDiam\tRough\tMinorLoss\tStatus');
   for (const p of pipes) {
-    const totalMinor = p.minorLoss + fittingsMinorLoss(p);
+    const totalMinor = p.minorLoss + pipeFittingsLoss(network, p);
     L.push(
       `${p.id}\t${p.node1}\t${p.node2}\t${n(p.length)}\t${n(p.diameter)}\t${n(p.roughness)}\t${n(
         totalMinor,
