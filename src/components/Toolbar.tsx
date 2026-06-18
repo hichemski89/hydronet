@@ -3,6 +3,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { runSimulation, validateNetwork } from '../engine/epanetRunner';
 import { buildInp } from '../engine/inpBuilder';
 import { parseInp } from '../engine/inpParser';
+import { buildDxf } from '../engine/dxfExport';
 import { saveProjectFile, parseProjectFile, readFileAsText } from '../engine/projectIO';
 import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
@@ -117,6 +118,17 @@ export default function Toolbar() {
     URL.revokeObjectURL(url);
   };
 
+  const onExportDxf = () => {
+    const dxf = buildDxf(network);
+    const blob = new Blob([dxf], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(network.meta.name || 'reseau').replace(/[^\w\-]+/g, '_')}.dxf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <header className="toolbar">
       <div className="toolbar-brand">
@@ -203,6 +215,9 @@ export default function Toolbar() {
         </button>
         <button className="btn" onClick={onExportInp} title="Exporter au format EPANET .inp">
           <ExportIcon size={16} /> .inp
+        </button>
+        <button className="btn" onClick={onExportDxf} title="Exporter le plan au format DXF (AutoCAD)">
+          <ExportIcon size={16} /> .dxf
         </button>
       </div>
 
