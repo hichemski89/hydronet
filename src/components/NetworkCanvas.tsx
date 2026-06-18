@@ -49,7 +49,9 @@ export default function NetworkCanvas() {
   const editingVertexLink = useNetworkStore((s) => s.editingVertexLink);
   const setEditingVertexLink = useNetworkStore((s) => s.setEditingVertexLink);
   const setPipeFitting = useNetworkStore((s) => s.setPipeFitting);
+  const setPipeBendRadius = useNetworkStore((s) => s.setPipeBendRadius);
   const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
+  const defaultPipe = useNetworkStore((s) => s.defaultPipe);
   const updateLinkVertex = useNetworkStore((s) => s.updateLinkVertex);
   const insertLinkVertex = useNetworkStore((s) => s.insertLinkVertex);
   const deleteLinkVertex = useNetworkStore((s) => s.deleteLinkVertex);
@@ -85,7 +87,7 @@ export default function NetworkCanvas() {
 
   // Suivi des interactions (souris)
   const interaction = useRef<{
-    mode: 'none' | 'pan' | 'dragNode' | 'dragGroup' | 'marquee' | 'clipframe' | 'dragVertex' | 'maybe';
+    mode: 'none' | 'pan' | 'dragNode' | 'dragGroup' | 'marquee' | 'clipframe' | 'dragVertex' | 'dragRadius' | 'maybe';
     startScreen: Pt;
     lastScreen: Pt;
     lastModel: Pt;
@@ -93,6 +95,7 @@ export default function NetworkCanvas() {
     targetKind?: 'node' | 'link';
     targetId?: string;
     vertexIndex?: number;
+    radiusCorner?: number;
     moved: boolean;
   }>({ mode: 'none', startScreen: { x: 0, y: 0 }, lastScreen: { x: 0, y: 0 }, lastModel: { x: 0, y: 0 }, moved: false });
 
@@ -216,6 +219,22 @@ export default function NetworkCanvas() {
       return;
     }
 
+    // Glisser la poignée de rayon de courbure
+    const radCorner = target.getAttribute('data-radius');
+    if (radCorner !== null && editingVertexLink) {
+      interaction.current = {
+        mode: 'dragRadius',
+        startScreen: sp,
+        lastScreen: sp,
+        lastModel: sp,
+        targetId: editingVertexLink,
+        radiusCorner: parseInt(radCorner),
+        moved: false,
+      };
+      commit();
+      return;
+    }
+
     // Glisser une poignée de sommet (mode édition des sommets)
     const vtx = target.getAttribute('data-vertex');
     if (vtx !== null && editingVertexLink) {
@@ -300,6 +319,15 @@ export default function NetworkCanvas() {
       const nx = snapToGrid ? Math.round(mp.x / gridSize) * gridSize : mp.x;
       const ny = snapToGrid ? Math.round(mp.y / gridSize) * gridSize : mp.y;
       updateLinkVertex(it.targetId, it.vertexIndex, nx, ny);
+      it.lastScreen = sp;
+      it.moved = true;
+    } else if (it.mode === 'dragRadius' && it.targetId != null && it.radiusCorner != null) {
+      const ci = cornerInfo(it.targetId, it.radiusCorner);
+      if (ci) {
+        const d = Math.max(4, (sp.x - ci.P.x) * ci.bx + (sp.y - ci.P.y) * ci.by);
+        const rm = (d * metersPerUnit) / view.scale;
+        setPipeBendRadius(it.targetId, rm);
+      }
       it.lastScreen = sp;
       it.moved = true;
     }
@@ -419,6 +447,44 @@ export default function NetworkCanvas() {
       }
     }
     return best;
+  };
+
+  // Point écran + bissectrice (côté arc) d'un coin de conduite
+  const cornerInfo = (linkId: string, cornerIdx: number): { P: Pt; bx: number; by: number } | null => {
+    const link = network.links[linkId];
+    if (!link) return null;
+    const n1 = network.nodes[link.node1];
+    const n2 = network.nodes[link.node2];
+    if (!n1 || !n2) return null;
+    const mp = [n1, ...(link.vertices ?? []), n2];
+    if (cornerIdx < 1 || cornerIdx > mp.length - 2) return null;
+    const P = modelToScreen(mp[cornerIdx]);
+    const A = modelToScreen(mp[cornerIdx - 1]);
+    const B = modelToScreen(mp[cornerIdx + 1]);
+    let u1x = P.x - A.x;
+    let u1y = P.y - A.y;
+    const l1 = Math.hypot(u1x, u1y) || 1;
+    u1x /= l1;
+    u1y /= l1;
+    let u2x = B.x - P.x;
+    let u2y = B.y - P.y;
+    const l2 = Math.hypot(u2x, u2y) || 1;
+    u2x /= l2;
+    u2y /= l2;
+    let bx = -u1x + u2x;
+    let by = -u1y + u2y;
+    const bl = Math.hypot(bx, by) || 1;
+    return { P, bx: bx / bl, by: by / bl };
+  };
+
+  // Premier coin (sommet) non-coude d'une conduite, pour la poignée de rayon
+  const firstBendCorner = (linkId: string): number | null => {
+    const link = network.links[linkId];
+    if (!link || link.type !== 'pipe' || !link.vertices?.length) return null;
+    for (let i = 1; i <= link.vertices.length; i++) {
+      if (!link.fittings?.[i - 1]) return i;
+    }
+    return null;
   };
 
   const onWheel = (e: React.WheelEvent) => {
@@ -552,7 +618,8 @@ export default function NetworkCanvas() {
     let path: string;
     let violations: number[] = [];
     if (display.smoothPipes && link.type === 'pipe' && minRm != null && (link.vertices?.length ?? 0) > 0) {
-      const screenR = (minRm / metersPerUnit) * view.scale;
+      const effRm = (link as { bendRadius?: number }).bendRadius ?? minRm;
+      const screenR = (effRm / metersPerUnit) * view.scale;
       path = roundedPath(pts, screenR, (vi) => !!fittings[vi]);
       const modelPts = [a, ...(link.vertices ?? []), b];
       violations = bendViolations(modelPts, minRm / metersPerUnit, (vi) => !!fittings[vi]);
@@ -765,8 +832,36 @@ export default function NetworkCanvas() {
     if (!editingVertexLink) return null;
     const link = network.links[editingVertexLink];
     if (!link || !link.vertices) return null;
+
+    // Poignée de rayon de courbure (sur le premier coin non-coude)
+    let radiusHandle: React.ReactNode = null;
+    if (link.type === 'pipe') {
+      const corner = firstBendCorner(editingVertexLink);
+      const minRm = minBendRadiusMeters(link.material, link.dn);
+      if (corner != null && minRm != null) {
+        const ci = cornerInfo(editingVertexLink, corner);
+        if (ci) {
+          const effRm = link.bendRadius ?? minRm;
+          const screenR = (effRm / metersPerUnit) * view.scale;
+          const d = Math.max(20, screenR);
+          const hx = ci.P.x + ci.bx * d;
+          const hy = ci.P.y + ci.by * d;
+          radiusHandle = (
+            <g>
+              <line x1={ci.P.x} y1={ci.P.y} x2={hx} y2={hy} stroke="#0d9488" strokeWidth={1.2} strokeDasharray="3 3" />
+              <circle cx={hx} cy={hy} r={6} fill="#ccfbf1" stroke="#0d9488" strokeWidth={2} data-radius={corner} style={{ cursor: 'ns-resize' }} />
+              <text x={hx + 9} y={hy + 4} fontSize={10} fontWeight={600} fill="#0d9488" paintOrder="stroke" stroke="#fff" strokeWidth={3} style={{ userSelect: 'none' }}>
+                R {effRm.toFixed(2)} m
+              </text>
+            </g>
+          );
+        }
+      }
+    }
+
     return (
       <g>
+        {radiusHandle}
         {link.vertices.map((v, i) => {
           const p = modelToScreen(v);
           return (
@@ -789,14 +884,38 @@ export default function NetworkCanvas() {
     );
   };
 
-  // Tracé en cours (rubber-band)
+  // Tracé en cours (rubber-band) avec aperçu du rayon de courbure
   const renderPending = () => {
     if (!pendingLink || !cursorModel) return null;
     const a = network.nodes[pendingLink.node1];
     if (!a) return null;
-    const pts = [modelToScreen(a), ...pendingLink.vertices.map(modelToScreen), modelToScreen(cursorModel)];
-    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-    return <path d={path} stroke="#1d4ed8" strokeWidth={2} strokeDasharray="6 4" fill="none" />;
+    const modelPts = [a, ...pendingLink.vertices, cursorModel];
+    const pts = modelPts.map(modelToScreen);
+    const minRm = pendingLink.type === 'pipe' ? minBendRadiusMeters(defaultPipe.material, defaultPipe.dn) : null;
+    let path: string;
+    let violations: number[] = [];
+    if (display.smoothPipes && minRm != null) {
+      const screenR = (minRm / metersPerUnit) * view.scale;
+      path = roundedPath(pts, screenR, () => false);
+      violations = bendViolations(modelPts, minRm / metersPerUnit, () => false);
+    } else {
+      path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    }
+    const tip = pts[pts.length - 1];
+    return (
+      <g>
+        <path d={path} stroke="#1d4ed8" strokeWidth={2} strokeDasharray="6 4" fill="none" />
+        {minRm != null && (
+          <text x={tip.x + 12} y={tip.y - 8} fontSize={11} fontWeight={600} fill={violations.length ? '#dc2626' : '#1d4ed8'} paintOrder="stroke" stroke="#fff" strokeWidth={3} style={{ userSelect: 'none' }}>
+            DN{defaultPipe.dn} · R≥{minRm.toFixed(2)}m{violations.length ? ' ⚠ trop serré' : ''}
+          </text>
+        )}
+        {violations.map((vi) => {
+          const sp = pts[vi + 1];
+          return <circle key={vi} cx={sp.x} cy={sp.y} r={7} fill="none" stroke="#dc2626" strokeWidth={2} />;
+        })}
+      </g>
+    );
   };
 
   return (

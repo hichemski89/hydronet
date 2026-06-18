@@ -19,6 +19,7 @@ import {
 import { sampleNetwork } from '../utils/sampleNetwork';
 import { Backdrop } from '../engine/dxfImport';
 import { linkModelLength } from '../utils/geometry';
+import { getMaterial, getSize, materialRoughness, minBendRadiusMeters } from '../data/pipeCatalog';
 import {
   loadPersistedNetwork,
   savePersistedNetwork,
@@ -119,6 +120,8 @@ interface NetworkState {
   /** Magnétisme sur grille lors de l'ajout/déplacement des nœuds. */
   snapToGrid: boolean;
   gridSize: number;
+  /** Tube par défaut appliqué aux nouvelles conduites. */
+  defaultPipe: { material: string; dn: number; pn: number };
   /** Réglages d'affichage de la carte. */
   display: DisplaySettings;
   displayDialogOpen: boolean;
@@ -158,6 +161,8 @@ interface NetworkState {
   insertLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
   deleteLinkVertex: (linkId: string, index: number) => void;
   setPipeFitting: (linkId: string, vertexIndex: number, kind: 'E90' | 'E45' | null) => void;
+  setPipeBendRadius: (linkId: string, radiusMeters: number) => void;
+  setDefaultPipe: (patch: Partial<{ material: string; dn: number; pn: number }>) => void;
   requestFit: () => void;
   deleteSelection: () => void;
   updateOptions: (patch: Partial<NetworkOptions>) => void;
@@ -331,6 +336,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   future: [],
   snapToGrid: false,
   gridSize: 20,
+  defaultPipe: { material: 'pehd-pe100', dn: 110, pn: 16 },
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
   curveDialogOpen: false,
@@ -466,6 +472,20 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       if (!p || p.node1 === node2) return { pendingLink: null };
       const link = defaultLink(p.type, p.node1, node2, p.vertices, ++linkCounter);
       link.id = uniqueLinkId(s.network, link.id);
+      if (link.type === 'pipe') {
+        const dp = s.defaultPipe;
+        const mat = getMaterial(dp.material);
+        const size = mat ? getSize(mat, dp.dn, dp.pn) : undefined;
+        if (mat && size) {
+          link.material = dp.material;
+          link.dn = dp.dn;
+          link.pn = size.pn;
+          link.diameter = size.innerDiameter;
+          link.roughness = materialRoughness(mat, s.network.options.headlossFormula);
+          const minR = minBendRadiusMeters(dp.material, dp.dn);
+          if (minR != null) link.bendRadius = minR;
+        }
+      }
       if (s.autoLength && link.type === 'pipe') {
         const len = Math.round(linkModelLength(s.network, link) * s.metersPerUnit * 100) / 100;
         if (len > 0) link.length = len;
@@ -569,6 +589,19 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       };
     });
   },
+
+  setPipeBendRadius: (linkId, radiusMeters) =>
+    set((s) => {
+      const link = s.network.links[linkId];
+      if (!link || link.type !== 'pipe') return s;
+      const minR = minBendRadiusMeters(link.material, link.dn) ?? 0;
+      const r = Math.max(minR, radiusMeters);
+      return {
+        network: { ...s.network, links: { ...s.network.links, [linkId]: { ...link, bendRadius: r } } },
+      };
+    }),
+
+  setDefaultPipe: (patch) => set((s) => ({ defaultPipe: { ...s.defaultPipe, ...patch } })),
 
   deleteLinkVertex: (linkId, index) => {
     get().commit();

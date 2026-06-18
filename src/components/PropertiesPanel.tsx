@@ -356,6 +356,8 @@ function PatternSelect({
 function PipeBendInfo({ pipe }: { pipe: Pipe }) {
   const network = useNetworkStore((s) => s.network);
   const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
+  const setPipeBendRadius = useNetworkStore((s) => s.setPipeBendRadius);
+  const commit = useNetworkStore((s) => s.commit);
   const minRm = minBendRadiusMeters(pipe.material, pipe.dn);
   const fK = fittingsMinorLoss(pipe);
   let viol = 0;
@@ -374,9 +376,20 @@ function PipeBendInfo({ pipe }: { pipe: Pipe }) {
   return (
     <div className="bend-info">
       {minRm != null && (
-        <div>
-          Rayon de courbure min : <strong>{minRm.toFixed(2)} m</strong>
-        </div>
+        <>
+          <label className="field" style={{ marginBottom: 6 }}>
+            <span className="field-label">
+              Rayon de courbure <em>(m, min {minRm.toFixed(2)})</em>
+            </span>
+            <input
+              type="number"
+              step={0.1}
+              value={pipe.bendRadius ?? minRm}
+              onFocus={commit}
+              onChange={(e) => setPipeBendRadius(pipe.id, parseFloat(e.target.value) || minRm)}
+            />
+          </label>
+        </>
       )}
       <div>
         Pertes singulières totales : <strong>{(pipe.minorLoss + fK).toFixed(2)}</strong>

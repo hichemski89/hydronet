@@ -8,6 +8,7 @@ import TimeBar from './components/TimeBar';
 import StatusBar from './components/StatusBar';
 import ProfileChart from './components/ProfileChart';
 import ZoomControls from './components/ZoomControls';
+import PipeDefaultsBar from './components/PipeDefaultsBar';
 import BackdropPanel from './components/BackdropPanel';
 import DisplaySettingsDialog from './components/DisplaySettingsDialog';
 import CurveManager from './components/CurveManager';
@@ -26,6 +27,7 @@ export default function App() {
           <div className={`map-viewport ${showGrid ? '' : 'no-grid'}`} style={{ backgroundColor }}>
             <NetworkCanvas />
             <MapLegend />
+            <PipeDefaultsBar />
             <BackdropPanel />
             <ZoomControls />
             <TimeBar />

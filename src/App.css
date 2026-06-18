@@ -555,6 +555,48 @@ body {
   white-space: nowrap;
 }
 
+/* ---------- Pipe defaults bar ---------- */
+.pipe-defaults-bar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  padding: 7px 14px;
+  font-size: 12.5px;
+  z-index: 16;
+}
+.pipe-defaults-bar .pdb-title {
+  font-weight: 600;
+}
+.pipe-defaults-bar label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.pipe-defaults-bar select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12.5px;
+  background: #fff;
+}
+.pipe-defaults-bar .pdb-info {
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+}
+.pipe-defaults-bar .pdb-info strong {
+  color: var(--brand);
+}
+
 /* ---------- Zoom controls ---------- */
 .zoom-controls {
   position: absolute;
