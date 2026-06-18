@@ -18,7 +18,9 @@ import {
   getDiameter,
   getSize,
   materialRoughness,
+  minBendRadiusMeters,
 } from '../data/pipeCatalog';
+import { fittingsMinorLoss, bendViolations } from '../utils/pipeGeometry';
 
 function Field({
   label,
@@ -247,8 +249,9 @@ export default function PropertiesPanel() {
           <Field label="Longueur" unit={lenU} value={(link as Pipe).length} onChange={(v) => updateLink(link.id, { length: v })} />
           <PipeCatalogEditor pipe={link as Pipe} />
           <Field label="Rugosité" value={(link as Pipe).roughness} onChange={(v) => updateLink(link.id, { roughness: v })} />
-          <Field label="Pertes singulières" value={(link as Pipe).minorLoss} step={0.1} onChange={(v) => updateLink(link.id, { minorLoss: v })} />
+          <Field label="Pertes singulières (base)" value={(link as Pipe).minorLoss} step={0.1} onChange={(v) => updateLink(link.id, { minorLoss: v })} />
           <StatusSelect value={(link as Pipe).status} onChange={(v) => updateLink(link.id, { status: v })} />
+          <PipeBendInfo pipe={link as Pipe} />
         </>
       )}
 
@@ -347,6 +350,45 @@ function PatternSelect({
         ))}
       </select>
     </label>
+  );
+}
+
+function PipeBendInfo({ pipe }: { pipe: Pipe }) {
+  const network = useNetworkStore((s) => s.network);
+  const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
+  const minRm = minBendRadiusMeters(pipe.material, pipe.dn);
+  const fK = fittingsMinorLoss(pipe);
+  let viol = 0;
+  if (minRm != null && pipe.vertices?.length) {
+    const a = network.nodes[pipe.node1];
+    const b = network.nodes[pipe.node2];
+    if (a && b) {
+      viol = bendViolations(
+        [a, ...pipe.vertices, b],
+        minRm / metersPerUnit,
+        (vi) => !!pipe.fittings?.[vi],
+      ).length;
+    }
+  }
+  const nFit = pipe.fittings ? Object.keys(pipe.fittings).length : 0;
+  return (
+    <div className="bend-info">
+      {minRm != null && (
+        <div>
+          Rayon de courbure min : <strong>{minRm.toFixed(2)} m</strong>
+        </div>
+      )}
+      <div>
+        Pertes singulières totales : <strong>{(pipe.minorLoss + fK).toFixed(2)}</strong>
+        {nFit > 0 && ` (dont ${nFit} coude${nFit > 1 ? 's' : ''} : ${fK.toFixed(2)})`}
+      </div>
+      {viol > 0 && (
+        <div className="bend-warn">
+          ⚠ {viol} sommet{viol > 1 ? 's' : ''} trop serré{viol > 1 ? 's' : ''} pour le rayon mini — insérez
+          un coude (clic droit sur la poignée en mode édition des sommets).
+        </div>
+      )}
+    </div>
   );
 }
 

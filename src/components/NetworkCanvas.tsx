@@ -10,6 +10,8 @@ import {
   linkDomain,
 } from '../utils/resultsAccess';
 import { pressureStatus, velocityStatus, STATUS_COLOR } from '../utils/compliance';
+import { roundedPath, bendViolations } from '../utils/pipeGeometry';
+import { minBendRadiusMeters } from '../data/pipeCatalog';
 import ContextMenu, { MenuItem } from './ContextMenu';
 
 interface Pt {
@@ -46,6 +48,8 @@ export default function NetworkCanvas() {
   const reverseLink = useNetworkStore((s) => s.reverseLink);
   const editingVertexLink = useNetworkStore((s) => s.editingVertexLink);
   const setEditingVertexLink = useNetworkStore((s) => s.setEditingVertexLink);
+  const setPipeFitting = useNetworkStore((s) => s.setPipeFitting);
+  const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
   const updateLinkVertex = useNetworkStore((s) => s.updateLinkVertex);
   const insertLinkVertex = useNetworkStore((s) => s.insertLinkVertex);
   const deleteLinkVertex = useNetworkStore((s) => s.deleteLinkVertex);
@@ -443,11 +447,21 @@ export default function NetworkCanvas() {
     let items: MenuItem[];
     if (vtx !== null && editingVertexLink) {
       const idx = parseInt(vtx);
-      items = [
+      const lk = network.links[editingVertexLink];
+      items = [];
+      if (lk?.type === 'pipe') {
+        items.push(
+          { label: 'Coude 90°', icon: '⌐', onClick: () => setPipeFitting(editingVertexLink, idx, 'E90') },
+          { label: 'Coude 45°', icon: '⌐', onClick: () => setPipeFitting(editingVertexLink, idx, 'E45') },
+          { label: 'Retirer le coude (courbure libre)', onClick: () => setPipeFitting(editingVertexLink, idx, null) },
+          { type: 'separator' },
+        );
+      }
+      items.push(
         { label: 'Supprimer ce sommet', icon: '🗑', danger: true, onClick: () => deleteLinkVertex(editingVertexLink, idx) },
         { type: 'separator' },
         { label: 'Terminer l’édition', icon: '✓', onClick: () => setEditingVertexLink(null) },
-      ];
+      );
     } else if (nodeId) {
       select({ kind: 'node', id: nodeId });
       items = [
@@ -527,11 +541,25 @@ export default function NetworkCanvas() {
     const b = network.nodes[link.node2];
     if (!a || !b) return null;
     const pts: Pt[] = [modelToScreen(a), ...(link.vertices ?? []).map(modelToScreen), modelToScreen(b)];
-    const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     const midScreen = {
       x: (pts[0].x + pts[pts.length - 1].x) / 2,
       y: (pts[0].y + pts[pts.length - 1].y) / 2,
     };
+
+    // Tracé : arcs (rayon de courbure) pour les conduites, coudes anguleux
+    const fittings = link.type === 'pipe' ? (link.fittings ?? {}) : {};
+    const minRm = link.type === 'pipe' ? minBendRadiusMeters(link.material, link.dn) : null;
+    let path: string;
+    let violations: number[] = [];
+    if (display.smoothPipes && link.type === 'pipe' && minRm != null && (link.vertices?.length ?? 0) > 0) {
+      const screenR = (minRm / metersPerUnit) * view.scale;
+      path = roundedPath(pts, screenR, (vi) => !!fittings[vi]);
+      const modelPts = [a, ...(link.vertices ?? []), b];
+      violations = bendViolations(modelPts, minRm / metersPerUnit, (vi) => !!fittings[vi]);
+    } else {
+      path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    }
+    const interiorScreen = pts.slice(1, -1);
 
     let stroke = '#5b6b7c';
     let width = display.linkWidth;
@@ -601,6 +629,32 @@ export default function NetworkCanvas() {
             {linkText}
           </text>
         )}
+        {/* Marqueurs de coude */}
+        {Object.entries(fittings).map(([vi, kind]) => {
+          const sp = interiorScreen[Number(vi)];
+          if (!sp) return null;
+          return (
+            <g key={`f${vi}`}>
+              <rect x={sp.x - 5} y={sp.y - 5} width={10} height={10} rx={2} transform={`rotate(45 ${sp.x} ${sp.y})`} fill="#fde68a" stroke="#b45309" strokeWidth={1.4} />
+              <text x={sp.x} y={sp.y - 8} fontSize={9} fontWeight={700} textAnchor="middle" fill="#b45309" style={{ userSelect: 'none' }}>
+                {kind === 'E90' ? '90°' : '45°'}
+              </text>
+            </g>
+          );
+        })}
+        {/* Alerte rayon de courbure non respecté */}
+        {violations.map((vi) => {
+          const sp = interiorScreen[vi];
+          if (!sp) return null;
+          return (
+            <g key={`v${vi}`}>
+              <circle cx={sp.x} cy={sp.y} r={7} fill="none" stroke="#dc2626" strokeWidth={2} />
+              <text x={sp.x} y={sp.y + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="#dc2626" style={{ userSelect: 'none' }}>
+                !
+              </text>
+            </g>
+          );
+        })}
       </g>
     );
   };

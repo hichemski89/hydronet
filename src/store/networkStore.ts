@@ -60,6 +60,7 @@ export interface DisplaySettings {
   backgroundColor: string;
   labelSize: number;
   arrowSize: number;
+  smoothPipes: boolean;
 }
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
@@ -75,6 +76,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   backgroundColor: '#f8fafc',
   labelSize: 11,
   arrowSize: 6,
+  smoothPipes: true,
 };
 
 export interface ViewTransform {
@@ -155,6 +157,7 @@ interface NetworkState {
   updateLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
   insertLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
   deleteLinkVertex: (linkId: string, index: number) => void;
+  setPipeFitting: (linkId: string, vertexIndex: number, kind: 'E90' | 'E45' | null) => void;
   requestFit: () => void;
   deleteSelection: () => void;
   updateOptions: (patch: Partial<NetworkOptions>) => void;
@@ -550,6 +553,20 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         if (len > 0) updated = { ...updated, length: len };
       }
       return { network: { ...s.network, links: { ...s.network.links, [linkId]: updated } } };
+    });
+  },
+
+  setPipeFitting: (linkId, vertexIndex, kind) => {
+    get().commit();
+    set((s) => {
+      const link = s.network.links[linkId];
+      if (!link || link.type !== 'pipe') return s;
+      const fittings = { ...(link.fittings ?? {}) };
+      if (kind === null) delete fittings[vertexIndex];
+      else fittings[vertexIndex] = kind;
+      return {
+        network: { ...s.network, links: { ...s.network.links, [linkId]: { ...link, fittings } } },
+      };
     });
   },
 

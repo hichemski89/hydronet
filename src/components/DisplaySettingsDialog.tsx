@@ -128,6 +128,7 @@ export default function DisplaySettingsDialog() {
           <div className="disp-section">Carte</div>
           <ColorRow label="Couleur du fond" value={display.backgroundColor} onChange={(v) => set({ backgroundColor: v })} />
           <Toggle label="Grille de fond" checked={display.showGrid} onChange={(v) => set({ showGrid: v })} />
+          <Toggle label="Conduites en courbes (arcs au rayon de courbure)" checked={display.smoothPipes} onChange={(v) => set({ smoothPipes: v })} />
           <Toggle label="Épaisseur des conduites selon le diamètre" checked={display.widthByDiameter} onChange={(v) => set({ widthByDiameter: v })} />
           <Slider label="Taille des nœuds" value={display.nodeSize} min={4} max={16} step={1} suffix=" px" onChange={(v) => set({ nodeSize: v })} />
           <Slider label="Épaisseur des conduites" value={display.linkWidth} min={1} max={8} step={0.5} suffix=" px" onChange={(v) => set({ linkWidth: v })} />
@@ -160,5 +161,6 @@ function defaultsForReset(): DisplaySettings {
     backgroundColor: '#f8fafc',
     labelSize: 11,
     arrowSize: 6,
+    smoothPipes: true,
   };
 }

@@ -65,6 +65,8 @@ export interface Pipe extends BaseLink {
   roughness: number;
   minorLoss: number;
   status: LinkStatus;
+  /** Coudes (accessoires) par index de sommet : 'E90' (90°) ou 'E45' (45°). */
+  fittings?: Record<string, 'E90' | 'E45'>;
   // --- Référence catalogue (optionnelle) ---
   /** Identifiant du matériau catalogue (ex. PEHD PE100). */
   material?: string;

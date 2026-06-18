@@ -25,6 +25,8 @@ export interface PipeMaterial {
   dwRoughness: number;
   /** Coefficient de Manning (n) pour Chézy-Manning. */
   cmRoughness: number;
+  /** Rayon de courbure mini = facteur × diamètre extérieur (DN). */
+  bendRadiusFactor: number;
   diameters: CatalogDiameter[];
 }
 
@@ -82,6 +84,7 @@ export const PEHD_PE100: PipeMaterial = {
   hwRoughness: 150, // PE : très lisse
   dwRoughness: 0.0015,
   cmRoughness: 0.009,
+  bendRadiusFactor: 25, // PE100 cintrage à froid ≈ 25 × DN
   diameters: buildDiameters(),
 };
 
@@ -97,6 +100,13 @@ export function getDiameter(material: PipeMaterial, dn: number): CatalogDiameter
 
 export function getSize(material: PipeMaterial, dn: number, pn: number): PipeSize | undefined {
   return getDiameter(material, dn)?.sizes.find((s) => s.pn === pn);
+}
+
+/** Rayon de courbure minimal (en mètres) pour un DN donné, ou null si inconnu. */
+export function minBendRadiusMeters(materialId: string | undefined, dn: number | undefined): number | null {
+  const mat = getMaterial(materialId);
+  if (!mat || !dn) return null;
+  return (mat.bendRadiusFactor * dn) / 1000;
 }
 
 /** Rugosité adaptée au matériau selon la formule de perte de charge. */
