@@ -24,18 +24,29 @@ export function fittingsMinorLoss(pipe: Pipe): number {
   return k;
 }
 
+/** Rayon effectif (m) au sommet `vertexIndex` : surcharge du sommet ou rayon mini. */
+export function effectiveBendRadius(pipe: Pipe, vertexIndex: number, minRm: number): number {
+  const v = pipe.bendRadii?.[vertexIndex];
+  return v != null && v > 0 ? v : minRm;
+}
+
 /**
- * Construit un chemin SVG arrondi (arcs de rayon r) aux sommets intermédiaires.
+ * Construit un chemin SVG arrondi (arcs) aux sommets intermédiaires.
  * Les sommets « vifs » (coudes ou violations) restent anguleux.
- * `r` est en unités d'écran ; `isSharp(i)` indique si le sommet intermédiaire i reste vif.
+ * `radiusAt(i)` donne le rayon (écran) du sommet intermédiaire i.
  */
-export function roundedPath(pts: Pt[], r: number, isSharp: (interiorIndex: number) => boolean): string {
+export function roundedPath(
+  pts: Pt[],
+  radiusAt: (interiorIndex: number) => number,
+  isSharp: (interiorIndex: number) => boolean,
+): string {
   if (pts.length < 2) return '';
   let d = `M${fmt(pts[0].x)},${fmt(pts[0].y)}`;
   for (let i = 1; i < pts.length - 1; i++) {
     const A = pts[i - 1];
     const P = pts[i];
     const B = pts[i + 1];
+    const r = radiusAt(i - 1);
     if (r <= 0 || isSharp(i - 1)) {
       d += `L${fmt(P.x)},${fmt(P.y)}`;
       continue;

@@ -1174,6 +1174,30 @@ body {
   font-weight: 600;
   line-height: 1.4;
 }
+.vradius-list {
+  margin-top: 8px;
+}
+.vradius-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.vradius-row span {
+  color: var(--muted);
+}
+.vradius-row input {
+  width: 90px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+.vradius-elbow {
+  color: #b45309 !important;
+  font-weight: 600;
+}
 
 /* ---------- Pipe catalog editor ---------- */
 .catalog-row {

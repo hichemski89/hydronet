@@ -20,7 +20,7 @@ import {
   materialRoughness,
   minBendRadiusMeters,
 } from '../data/pipeCatalog';
-import { fittingsMinorLoss, bendViolations } from '../utils/pipeGeometry';
+import { fittingsMinorLoss, bendViolations, effectiveBendRadius } from '../utils/pipeGeometry';
 
 function Field({
   label,
@@ -356,7 +356,7 @@ function PatternSelect({
 function PipeBendInfo({ pipe }: { pipe: Pipe }) {
   const network = useNetworkStore((s) => s.network);
   const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
-  const setPipeBendRadius = useNetworkStore((s) => s.setPipeBendRadius);
+  const setPipeVertexRadius = useNetworkStore((s) => s.setPipeVertexRadius);
   const commit = useNetworkStore((s) => s.commit);
   const minRm = minBendRadiusMeters(pipe.material, pipe.dn);
   const fK = fittingsMinorLoss(pipe);
@@ -376,20 +376,33 @@ function PipeBendInfo({ pipe }: { pipe: Pipe }) {
   return (
     <div className="bend-info">
       {minRm != null && (
-        <>
-          <label className="field" style={{ marginBottom: 6 }}>
-            <span className="field-label">
-              Rayon de courbure <em>(m, min {minRm.toFixed(2)})</em>
-            </span>
-            <input
-              type="number"
-              step={0.1}
-              value={pipe.bendRadius ?? minRm}
-              onFocus={commit}
-              onChange={(e) => setPipeBendRadius(pipe.id, parseFloat(e.target.value) || minRm)}
-            />
-          </label>
-        </>
+        <div>
+          Rayon de courbure min : <strong>{minRm.toFixed(2)} m</strong>
+        </div>
+      )}
+      {minRm != null && (pipe.vertices?.length ?? 0) > 0 && (
+        <div className="vradius-list">
+          <div className="field-label" style={{ marginBottom: 4 }}>Rayon par sommet (m)</div>
+          {pipe.vertices!.map((_, vi) =>
+            pipe.fittings?.[vi] ? (
+              <div className="vradius-row" key={vi}>
+                <span>Sommet {vi + 1}</span>
+                <span className="vradius-elbow">coude {pipe.fittings[vi] === 'E90' ? '90°' : '45°'}</span>
+              </div>
+            ) : (
+              <div className="vradius-row" key={vi}>
+                <span>Sommet {vi + 1}</span>
+                <input
+                  type="number"
+                  step={0.1}
+                  value={effectiveBendRadius(pipe, vi, minRm)}
+                  onFocus={commit}
+                  onChange={(e) => setPipeVertexRadius(pipe.id, vi, parseFloat(e.target.value) || minRm)}
+                />
+              </div>
+            ),
+          )}
+        </div>
       )}
       <div>
         Pertes singulières totales : <strong>{(pipe.minorLoss + fK).toFixed(2)}</strong>

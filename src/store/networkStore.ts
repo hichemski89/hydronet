@@ -161,7 +161,7 @@ interface NetworkState {
   insertLinkVertex: (linkId: string, index: number, x: number, y: number) => void;
   deleteLinkVertex: (linkId: string, index: number) => void;
   setPipeFitting: (linkId: string, vertexIndex: number, kind: 'E90' | 'E45' | null) => void;
-  setPipeBendRadius: (linkId: string, radiusMeters: number) => void;
+  setPipeVertexRadius: (linkId: string, vertexIndex: number, radiusMeters: number) => void;
   setDefaultPipe: (patch: Partial<{ material: string; dn: number; pn: number }>) => void;
   requestFit: () => void;
   deleteSelection: () => void;
@@ -482,8 +482,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           link.pn = size.pn;
           link.diameter = size.innerDiameter;
           link.roughness = materialRoughness(mat, s.network.options.headlossFormula);
-          const minR = minBendRadiusMeters(dp.material, dp.dn);
-          if (minR != null) link.bendRadius = minR;
         }
       }
       if (s.autoLength && link.type === 'pipe') {
@@ -590,14 +588,15 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     });
   },
 
-  setPipeBendRadius: (linkId, radiusMeters) =>
+  setPipeVertexRadius: (linkId, vertexIndex, radiusMeters) =>
     set((s) => {
       const link = s.network.links[linkId];
       if (!link || link.type !== 'pipe') return s;
       const minR = minBendRadiusMeters(link.material, link.dn) ?? 0;
       const r = Math.max(minR, radiusMeters);
+      const bendRadii = { ...(link.bendRadii ?? {}), [vertexIndex]: r };
       return {
-        network: { ...s.network, links: { ...s.network.links, [linkId]: { ...link, bendRadius: r } } },
+        network: { ...s.network, links: { ...s.network.links, [linkId]: { ...link, bendRadii } } },
       };
     }),
 

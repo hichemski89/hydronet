@@ -10,7 +10,7 @@ import {
   linkDomain,
 } from '../utils/resultsAccess';
 import { pressureStatus, velocityStatus, STATUS_COLOR } from '../utils/compliance';
-import { roundedPath, bendViolations } from '../utils/pipeGeometry';
+import { roundedPath, bendViolations, effectiveBendRadius } from '../utils/pipeGeometry';
 import { minBendRadiusMeters } from '../data/pipeCatalog';
 import ContextMenu, { MenuItem } from './ContextMenu';
 
@@ -49,7 +49,7 @@ export default function NetworkCanvas() {
   const editingVertexLink = useNetworkStore((s) => s.editingVertexLink);
   const setEditingVertexLink = useNetworkStore((s) => s.setEditingVertexLink);
   const setPipeFitting = useNetworkStore((s) => s.setPipeFitting);
-  const setPipeBendRadius = useNetworkStore((s) => s.setPipeBendRadius);
+  const setPipeVertexRadius = useNetworkStore((s) => s.setPipeVertexRadius);
   const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
   const defaultPipe = useNetworkStore((s) => s.defaultPipe);
   const updateLinkVertex = useNetworkStore((s) => s.updateLinkVertex);
@@ -328,7 +328,7 @@ export default function NetworkCanvas() {
         let rm = (d * metersPerUnit) / view.scale;
         // Borne au rayon maximal géométrique du coin (l'arc ne peut pas grandir au-delà)
         rm = Math.min(rm, cornerMaxRadiusModel(it.targetId, it.radiusCorner));
-        setPipeBendRadius(it.targetId, rm);
+        setPipeVertexRadius(it.targetId, it.radiusCorner - 1, rm);
       }
       it.lastScreen = sp;
       it.moved = true;
@@ -504,16 +504,6 @@ export default function NetworkCanvas() {
     return tanMax / Math.tan(delta / 2);
   };
 
-  // Premier coin (sommet) non-coude d'une conduite, pour la poignée de rayon
-  const firstBendCorner = (linkId: string): number | null => {
-    const link = network.links[linkId];
-    if (!link || link.type !== 'pipe' || !link.vertices?.length) return null;
-    for (let i = 1; i <= link.vertices.length; i++) {
-      if (!link.fittings?.[i - 1]) return i;
-    }
-    return null;
-  };
-
   const onWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const sp = getScreenPoint(e);
@@ -645,9 +635,12 @@ export default function NetworkCanvas() {
     let path: string;
     let violations: number[] = [];
     if (display.smoothPipes && link.type === 'pipe' && minRm != null && (link.vertices?.length ?? 0) > 0) {
-      const effRm = (link as { bendRadius?: number }).bendRadius ?? minRm;
-      const screenR = (effRm / metersPerUnit) * view.scale;
-      path = roundedPath(pts, screenR, (vi) => !!fittings[vi]);
+      const pipe = link;
+      path = roundedPath(
+        pts,
+        (vi) => (effectiveBendRadius(pipe, vi, minRm!) / metersPerUnit) * view.scale,
+        (vi) => !!fittings[vi],
+      );
       const modelPts = [a, ...(link.vertices ?? []), b];
       violations = bendViolations(modelPts, minRm / metersPerUnit, (vi) => !!fittings[vi]);
     } else {
@@ -860,21 +853,24 @@ export default function NetworkCanvas() {
     const link = network.links[editingVertexLink];
     if (!link || !link.vertices) return null;
 
-    // Poignée de rayon de courbure (sur le premier coin non-coude)
-    let radiusHandle: React.ReactNode = null;
+    // Une poignée de rayon par coin non-coude (réglable séparément)
+    let radiusHandles: React.ReactNode = null;
     if (link.type === 'pipe') {
-      const corner = firstBendCorner(editingVertexLink);
       const minRm = minBendRadiusMeters(link.material, link.dn);
-      if (corner != null && minRm != null) {
-        const ci = cornerInfo(editingVertexLink, corner);
-        if (ci) {
-          const effRm = link.bendRadius ?? minRm;
+      if (minRm != null && link.vertices) {
+        const pipe = link;
+        radiusHandles = link.vertices.map((_, vi) => {
+          if (pipe.fittings?.[vi]) return null; // pas de rayon sur un coude
+          const corner = vi + 1;
+          const ci = cornerInfo(editingVertexLink, corner);
+          if (!ci) return null;
+          const effRm = effectiveBendRadius(pipe, vi, minRm);
           const screenR = (effRm / metersPerUnit) * view.scale;
-          const d = Math.max(20, screenR);
+          const d = Math.max(18, screenR);
           const hx = ci.P.x + ci.bx * d;
           const hy = ci.P.y + ci.by * d;
-          radiusHandle = (
-            <g>
+          return (
+            <g key={`r${vi}`}>
               <line x1={ci.P.x} y1={ci.P.y} x2={hx} y2={hy} stroke="#0d9488" strokeWidth={1.2} strokeDasharray="3 3" />
               <circle cx={hx} cy={hy} r={6} fill="#ccfbf1" stroke="#0d9488" strokeWidth={2} data-radius={corner} style={{ cursor: 'ns-resize' }} />
               <text x={hx + 9} y={hy + 4} fontSize={10} fontWeight={600} fill="#0d9488" paintOrder="stroke" stroke="#fff" strokeWidth={3} style={{ userSelect: 'none' }}>
@@ -882,13 +878,13 @@ export default function NetworkCanvas() {
               </text>
             </g>
           );
-        }
+        });
       }
     }
 
     return (
       <g>
-        {radiusHandle}
+        {radiusHandles}
         {link.vertices.map((v, i) => {
           const p = modelToScreen(v);
           return (
@@ -923,7 +919,7 @@ export default function NetworkCanvas() {
     let violations: number[] = [];
     if (display.smoothPipes && minRm != null) {
       const screenR = (minRm / metersPerUnit) * view.scale;
-      path = roundedPath(pts, screenR, () => false);
+      path = roundedPath(pts, () => screenR, () => false);
       violations = bendViolations(modelPts, minRm / metersPerUnit, () => false);
     } else {
       path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');

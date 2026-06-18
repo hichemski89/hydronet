@@ -67,8 +67,8 @@ export interface Pipe extends BaseLink {
   status: LinkStatus;
   /** Coudes (accessoires) par index de sommet : 'E90' (90°) ou 'E45' (45°). */
   fittings?: Record<string, 'E90' | 'E45'>;
-  /** Rayon de courbure utilisé pour le tracé (m). Par défaut = rayon mini du tube. */
-  bendRadius?: number;
+  /** Rayon de courbure par sommet (m), index de sommet → rayon. Défaut = rayon mini. */
+  bendRadii?: Record<string, number>;
   // --- Référence catalogue (optionnelle) ---
   /** Identifiant du matériau catalogue (ex. PEHD PE100). */
   material?: string;
