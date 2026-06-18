@@ -1,12 +1,26 @@
-import { Network } from '../types/network';
+import { Network, SimulationResults } from '../types/network';
+import { flowUnitLabel } from '../utils/format';
+
+function clock(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return `${h}h${m.toString().padStart(2, '0')}`;
+}
+function nodeTypeLabel(t: string): string {
+  return t === 'junction' ? 'Noeud' : t === 'reservoir' ? 'Bache' : 'Reservoir';
+}
+function linkTypeLabel(t: string): string {
+  return t === 'pipe' ? 'Conduite' : t === 'pump' ? 'Pompe' : 'Vanne';
+}
+function fmt(v: number | undefined): string {
+  return v == null || !isFinite(v) ? '-' : v.toFixed(2);
+}
 
 /**
- * Génère un fichier DXF (R12, ASCII) du réseau : conduites, symboles des
- * nœuds/sources/réservoirs/pompes/vannes et étiquettes, par calques.
- * N'utilise que des entités LINE/CIRCLE/TEXT (compatibles toutes versions AutoCAD).
- * Les coordonnées du modèle (Y vers le haut) correspondent au repère DXF.
+ * Génère un DXF (R12) du réseau, avec optionnellement un tableau des résultats
+ * et une légende. N'utilise que des entités LINE/CIRCLE/TEXT (compatibles AutoCAD).
  */
-export function buildDxf(network: Network): string {
+export function buildDxf(network: Network, results?: SimulationResults | null, timeIndex = 0): string {
   const L: string[] = [];
   const g = (code: number, value: string | number) => {
     L.push(String(code));
@@ -14,18 +28,15 @@ export function buildDxf(network: Network): string {
   };
   const num = (v: number) => Number(v.toFixed(4));
 
-  // Étendue pour dimensionner les symboles
   const xs: number[] = [];
   const ys: number[] = [];
   for (const nd of Object.values(network.nodes)) {
     xs.push(nd.x);
     ys.push(nd.y);
   }
-  for (const lk of Object.values(network.links)) {
-    for (const v of lk.vertices ?? []) {
-      xs.push(v.x);
-      ys.push(v.y);
-    }
+  for (const lk of Object.values(network.links)) for (const v of lk.vertices ?? []) {
+    xs.push(v.x);
+    ys.push(v.y);
   }
   const minX = xs.length ? Math.min(...xs) : 0;
   const maxX = xs.length ? Math.max(...xs) : 100;
@@ -34,6 +45,7 @@ export function buildDxf(network: Network): string {
   const diag = Math.hypot(maxX - minX, maxY - minY) || 100;
   const sym = Math.max(diag * 0.006, 0.001);
   const txt = sym * 1.3;
+  const rowH = txt * 2;
 
   const line = (layer: string, x1: number, y1: number, x2: number, y2: number) => {
     g(0, 'LINE');
@@ -66,17 +78,41 @@ export function buildDxf(network: Network): string {
     g(40, num(h));
     g(1, s);
   };
-  const square = (layer: string, cx: number, cy: number, half: number) => {
-    polyline(
-      layer,
-      [
-        { x: cx - half, y: cy - half },
-        { x: cx + half, y: cy - half },
-        { x: cx + half, y: cy + half },
-        { x: cx - half, y: cy + half },
-      ],
-      true,
-    );
+  const square = (layer: string, cx: number, cy: number, half: number) =>
+    polyline(layer, [
+      { x: cx - half, y: cy - half },
+      { x: cx + half, y: cy - half },
+      { x: cx + half, y: cy + half },
+      { x: cx - half, y: cy + half },
+    ], true);
+
+  // Dessine un tableau (titre + grille) ; renvoie l'ordonnée du bas.
+  const drawTable = (ox: number, oy: number, title: string, headers: string[], rows: string[][]): number => {
+    text('TABLEAU', ox, oy, txt * 1.2, title);
+    const top = oy - txt * 2.2;
+    const pad = txt * 0.4;
+    const charW = txt * 0.62;
+    const colW = headers.map((h, c) => {
+      let mx = h.length;
+      for (const r of rows) mx = Math.max(mx, (r[c] ?? '').length);
+      return mx * charW + 2 * pad;
+    });
+    const totalW = colW.reduce((a, b) => a + b, 0);
+    const nRows = rows.length + 1;
+    for (let i = 0; i <= nRows; i++) line('TABLEAU', ox, top - i * rowH, ox + totalW, top - i * rowH);
+    const xPos = [ox];
+    let cx = ox;
+    for (const w of colW) {
+      cx += w;
+      xPos.push(cx);
+    }
+    for (const x of xPos) line('TABLEAU', x, top, x, top - nRows * rowH);
+    for (let c = 0; c < headers.length; c++) text('TABLEAU', xPos[c] + pad, top - rowH + pad, txt, headers[c]);
+    for (let ri = 0; ri < rows.length; ri++) {
+      const y = top - (ri + 2) * rowH + pad;
+      for (let c = 0; c < headers.length; c++) text('TABLEAU', xPos[c] + pad, y, txt, rows[ri][c] ?? '');
+    }
+    return top - nRows * rowH;
   };
 
   // --- En-tête ---
@@ -85,19 +121,10 @@ export function buildDxf(network: Network): string {
   g(9, '$ACADVER');
   g(1, 'AC1009');
   g(9, '$INSUNITS');
-  g(70, 6); // mètres
-  g(9, '$EXTMIN');
-  g(10, num(minX - sym));
-  g(20, num(minY - sym));
-  g(30, 0);
-  g(9, '$EXTMAX');
-  g(10, num(maxX + sym));
-  g(20, num(maxY + sym));
-  g(30, 0);
+  g(70, 6);
   g(0, 'ENDSEC');
 
-  // --- Tables : calques ---
-  const layers: [string, number][] = [
+  const layerDefs: [string, number][] = [
     ['0', 7],
     ['CONDUITES', 5],
     ['NOEUDS', 8],
@@ -106,13 +133,15 @@ export function buildDxf(network: Network): string {
     ['POMPES', 1],
     ['VANNES', 2],
     ['ETIQUETTES', 7],
+    ['TABLEAU', 7],
+    ['LEGENDE', 7],
   ];
   g(0, 'SECTION');
   g(2, 'TABLES');
   g(0, 'TABLE');
   g(2, 'LAYER');
-  g(70, layers.length);
-  for (const [name, color] of layers) {
+  g(70, layerDefs.length);
+  for (const [name, color] of layerDefs) {
     g(0, 'LAYER');
     g(2, name);
     g(70, 0);
@@ -132,9 +161,8 @@ export function buildDxf(network: Network): string {
     if (!a || !b) continue;
     const pts = [a, ...(lk.vertices ?? []), b];
     const mid = pts[Math.floor(pts.length / 2)];
-    if (lk.type === 'pipe') {
-      polyline('CONDUITES', pts, false);
-    } else if (lk.type === 'pump') {
+    if (lk.type === 'pipe') polyline('CONDUITES', pts, false);
+    else if (lk.type === 'pump') {
       polyline('POMPES', pts, false);
       circle('POMPES', mid.x, mid.y, sym * 0.7);
     } else {
@@ -142,16 +170,85 @@ export function buildDxf(network: Network): string {
       square('VANNES', mid.x, mid.y, sym * 0.6);
     }
   }
-
   for (const nd of Object.values(network.nodes)) {
-    if (nd.type === 'junction') {
-      circle('NOEUDS', nd.x, nd.y, sym * 0.5);
-    } else if (nd.type === 'reservoir') {
-      square('SOURCES', nd.x, nd.y, sym * 0.8);
-    } else {
-      square('RESERVOIRS', nd.x, nd.y, sym * 0.8);
-    }
+    if (nd.type === 'junction') circle('NOEUDS', nd.x, nd.y, sym * 0.5);
+    else if (nd.type === 'reservoir') square('SOURCES', nd.x, nd.y, sym * 0.8);
+    else square('RESERVOIRS', nd.x, nd.y, sym * 0.8);
     text('ETIQUETTES', nd.x + sym, nd.y + sym * 0.5, txt, nd.id);
+  }
+
+  // --- Légende (sous le réseau) ---
+  const lx = minX;
+  let ly = minY - sym * 5;
+  text('LEGENDE', lx, ly, txt * 1.3, 'LEGENDE');
+  ly -= rowH * 1.3;
+  const legend: [string, 'circle' | 'square' | 'line', string][] = [
+    ['NOEUDS', 'circle', 'Noeud de demande'],
+    ['SOURCES', 'square', 'Bache a eau / Source'],
+    ['RESERVOIRS', 'square', 'Reservoir (stockage)'],
+    ['POMPES', 'circle', 'Pompe'],
+    ['VANNES', 'square', 'Vanne'],
+    ['CONDUITES', 'line', 'Conduite'],
+  ];
+  for (const [layer, shape, label] of legend) {
+    const sx = lx + sym;
+    if (shape === 'circle') circle(layer, sx, ly, sym * 0.5);
+    else if (shape === 'square') square(layer, sx, ly, sym * 0.6);
+    else line(layer, lx, ly, lx + sym * 2, ly);
+    text('LEGENDE', lx + sym * 3, ly - txt * 0.5, txt, label);
+    ly -= rowH;
+  }
+
+  // --- Tableaux des résultats (à droite du réseau) ---
+  if (results) {
+    const flowU = flowUnitLabel(results.flowUnits);
+    const lenU = results.lengthUnit;
+    const presU = results.pressureUnit;
+    const tx = maxX + sym * 8;
+    let ty = maxY;
+
+    const nodeRows = Object.values(network.nodes).map((nd) => {
+      const r = results.nodes[nd.id];
+      const elev = nd.type === 'reservoir' ? '-' : fmt((nd as { elevation?: number }).elevation);
+      return [
+        nd.id,
+        nodeTypeLabel(nd.type),
+        elev,
+        fmt(r?.demand[timeIndex]),
+        fmt(r?.pressure[timeIndex]),
+        fmt(r?.head[timeIndex]),
+      ];
+    });
+    ty = drawTable(
+      tx,
+      ty,
+      `RESULTATS NOEUDS - ${clock(results.times[timeIndex] ?? 0)}`,
+      ['ID', 'Type', `Cote(${lenU})`, `Demande(${flowU})`, `Pression(${presU})`, `Charge(${lenU})`],
+      nodeRows,
+    );
+
+    ty -= rowH * 2;
+    const linkRows = Object.values(network.links).map((lk) => {
+      const r = results.links[lk.id];
+      const len = lk.type === 'pipe' ? fmt(lk.length) : '-';
+      const diam = lk.type === 'pump' ? '-' : fmt((lk as { diameter?: number }).diameter);
+      return [
+        lk.id,
+        linkTypeLabel(lk.type),
+        len,
+        diam,
+        fmt(r?.flow[timeIndex]),
+        fmt(r?.velocity[timeIndex]),
+        fmt(r?.headloss[timeIndex]),
+      ];
+    });
+    drawTable(
+      tx,
+      ty,
+      'RESULTATS CONDUITES',
+      ['ID', 'Type', `Long(${lenU})`, 'Diam(mm)', `Debit(${flowU})`, `Vitesse(${lenU}/s)`, `Perte(${lenU})`],
+      linkRows,
+    );
   }
 
   g(0, 'ENDSEC');
