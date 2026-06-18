@@ -733,10 +733,23 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   updateOptions: (patch) =>
-    set((s) => ({
-      network: { ...s.network, options: { ...s.network.options, ...patch } },
-      results: null,
-    })),
+    set((s) => {
+      const options = { ...s.network.options, ...patch };
+      let links = s.network.links;
+      // Si la formule de perte de charge change, recalcule la rugosité des
+      // conduites du catalogue (le C de Hazen-Williams ≠ le n de Manning).
+      if (patch.headlossFormula && patch.headlossFormula !== s.network.options.headlossFormula) {
+        links = { ...s.network.links };
+        for (const id of Object.keys(links)) {
+          const lk = links[id];
+          if (lk.type === 'pipe' && lk.material) {
+            const mat = getMaterial(lk.material);
+            if (mat) links[id] = { ...lk, roughness: materialRoughness(mat, patch.headlossFormula) };
+          }
+        }
+      }
+      return { network: { ...s.network, options, links }, results: null };
+    }),
 
   updateCriteria: (patch) =>
     set((s) => ({ network: { ...s.network, criteria: { ...s.network.criteria, ...patch } } })),
