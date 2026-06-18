@@ -7,12 +7,25 @@ import {
   minBendRadiusMeters,
 } from '../data/pipeCatalog';
 
+const ANGLE_PRESETS: { label: string; angles: number[] }[] = [
+  { label: '90°', angles: [90] },
+  { label: '45° / 90°', angles: [45, 90] },
+  { label: '22,5° / 45° / 90°', angles: [22.5, 45, 90] },
+  { label: 'Multiples de 11,25°', angles: [11.25, 22.5, 33.75, 45, 56.25, 67.5, 78.75, 90] },
+];
+
 export default function PipeDefaultsBar() {
   const tool = useNetworkStore((s) => s.tool);
   const dp = useNetworkStore((s) => s.defaultPipe);
   const setDefaultPipe = useNetworkStore((s) => s.setDefaultPipe);
+  const angleSnap = useNetworkStore((s) => s.angleSnap);
+  const setAngleSnap = useNetworkStore((s) => s.setAngleSnap);
+  const snapAngles = useNetworkStore((s) => s.snapAngles);
+  const setSnapAngles = useNetworkStore((s) => s.setSnapAngles);
 
   if (tool !== 'pipe') return null;
+
+  const presetIdx = ANGLE_PRESETS.findIndex((p) => p.angles.join(',') === snapAngles.join(','));
 
   const mat = getMaterial(dp.material);
   const dia = mat ? getDiameter(mat, dp.dn) : undefined;
@@ -54,6 +67,20 @@ export default function PipeDefaultsBar() {
         Ø int. <strong>{size ? size.innerDiameter : '—'} mm</strong>
         {minR != null && <> · rayon mini <strong>{minR.toFixed(2)} m</strong></>}
       </span>
+      <label className="pdb-snap" title="Contraindre l'angle des tronçons aux angles de coudes standards">
+        <input type="checkbox" checked={angleSnap} onChange={(e) => setAngleSnap(e.target.checked)} />
+        Angles normalisés
+      </label>
+      {angleSnap && (
+        <select
+          value={presetIdx >= 0 ? presetIdx : 2}
+          onChange={(e) => setSnapAngles(ANGLE_PRESETS[Number(e.target.value)].angles)}
+        >
+          {ANGLE_PRESETS.map((p, i) => (
+            <option key={i} value={i}>{p.label}</option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

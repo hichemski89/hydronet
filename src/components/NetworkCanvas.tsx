@@ -10,7 +10,7 @@ import {
   linkDomain,
 } from '../utils/resultsAccess';
 import { pressureStatus, velocityStatus, STATUS_COLOR } from '../utils/compliance';
-import { roundedPath, bendViolations, effectiveBendRadius } from '../utils/pipeGeometry';
+import { roundedPath, bendViolations, effectiveBendRadius, snapDrawPoint, turnAngleDeg } from '../utils/pipeGeometry';
 import { minBendRadiusMeters } from '../data/pipeCatalog';
 import ContextMenu, { MenuItem } from './ContextMenu';
 
@@ -52,6 +52,8 @@ export default function NetworkCanvas() {
   const setPipeVertexRadius = useNetworkStore((s) => s.setPipeVertexRadius);
   const metersPerUnit = useNetworkStore((s) => s.metersPerUnit);
   const defaultPipe = useNetworkStore((s) => s.defaultPipe);
+  const angleSnap = useNetworkStore((s) => s.angleSnap);
+  const snapAngles = useNetworkStore((s) => s.snapAngles);
   const updateLinkVertex = useNetworkStore((s) => s.updateLinkVertex);
   const insertLinkVertex = useNetworkStore((s) => s.insertLinkVertex);
   const deleteLinkVertex = useNetworkStore((s) => s.deleteLinkVertex);
@@ -384,6 +386,17 @@ export default function NetworkCanvas() {
     interaction.current = { ...it, mode: 'none', moved: false };
   };
 
+  // Accroche le point selon les angles de tronçon autorisés (pendant le tracé)
+  const snapPendingCursor = (mpt: Pt): Pt => {
+    if (!angleSnap || !pendingLink) return mpt;
+    const n1 = network.nodes[pendingLink.node1];
+    if (!n1) return mpt;
+    const chain: Pt[] = [n1, ...pendingLink.vertices];
+    const last = chain[chain.length - 1];
+    const prev = chain.length >= 2 ? chain[chain.length - 2] : null;
+    return snapDrawPoint(last, prev, mpt, snapAngles);
+  };
+
   const handleClick = (
     targetKind: 'node' | 'link' | undefined,
     targetId: string | undefined,
@@ -417,7 +430,8 @@ export default function NetworkCanvas() {
         if (!pendingLink) startLink(tool, targetId);
         else completeLink(targetId);
       } else if (pendingLink) {
-        addLinkVertex(mp.x, mp.y);
+        const v = snapPendingCursor(mp);
+        addLinkVertex(v.x, v.y);
       }
       return;
     }
@@ -933,8 +947,14 @@ export default function NetworkCanvas() {
     if (!pendingLink || !cursorModel) return null;
     const a = network.nodes[pendingLink.node1];
     if (!a) return null;
-    const modelPts = [a, ...pendingLink.vertices, cursorModel];
+    const snapCursor = snapPendingCursor(cursorModel);
+    const modelPts = [a, ...pendingLink.vertices, snapCursor];
     const pts = modelPts.map(modelToScreen);
+    // Angle du tronçon en cours (par rapport au précédent)
+    const chain = [a, ...pendingLink.vertices];
+    const lastPt = chain[chain.length - 1];
+    const prevPt = chain.length >= 2 ? chain[chain.length - 2] : null;
+    const segAngle = turnAngleDeg(lastPt, prevPt, snapCursor);
     const pendFit = pendingLink.fittings;
     const isSharp = (vi: number) => !!pendFit[vi];
     const minRm = pendingLink.type === 'pipe' ? minBendRadiusMeters(defaultPipe.material, defaultPipe.dn) : null;
@@ -953,7 +973,9 @@ export default function NetworkCanvas() {
         <path d={path} stroke="#1d4ed8" strokeWidth={2} strokeDasharray="6 4" fill="none" />
         {minRm != null && (
           <text x={tip.x + 12} y={tip.y - 8} fontSize={11} fontWeight={600} fill={violations.length ? '#dc2626' : '#1d4ed8'} paintOrder="stroke" stroke="#fff" strokeWidth={3} style={{ userSelect: 'none' }}>
-            DN{defaultPipe.dn} · R≥{minRm.toFixed(2)}m{violations.length ? ' ⚠ trop serré' : ''}
+            DN{defaultPipe.dn}
+            {segAngle != null && ` · angle ${segAngle.toFixed(segAngle % 1 ? 1 : 0)}°`}
+            {violations.length ? ' ⚠ trop serré' : ''}
           </text>
         )}
         {/* Coudes posés à la volée */}

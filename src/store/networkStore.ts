@@ -124,6 +124,9 @@ interface NetworkState {
   gridSize: number;
   /** Tube par défaut appliqué aux nouvelles conduites. */
   defaultPipe: { material: string; dn: number; pn: number };
+  /** Accrochage des angles de tronçon (angles de coudes du commerce). */
+  angleSnap: boolean;
+  snapAngles: number[];
   /** Réglages d'affichage de la carte. */
   display: DisplaySettings;
   displayDialogOpen: boolean;
@@ -167,6 +170,8 @@ interface NetworkState {
   setPipeFitting: (linkId: string, vertexIndex: number, kind: 'E90' | 'E45' | null) => void;
   setPipeVertexRadius: (linkId: string, vertexIndex: number, radiusMeters: number) => void;
   setDefaultPipe: (patch: Partial<{ material: string; dn: number; pn: number }>) => void;
+  setAngleSnap: (on: boolean) => void;
+  setSnapAngles: (angles: number[]) => void;
   requestFit: () => void;
   deleteSelection: () => void;
   updateOptions: (patch: Partial<NetworkOptions>) => void;
@@ -341,6 +346,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   snapToGrid: false,
   gridSize: 20,
   defaultPipe: { material: 'pehd-pe100', dn: 110, pn: 16 },
+  angleSnap: false,
+  snapAngles: [22.5, 45, 90],
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
   curveDialogOpen: false,
@@ -634,6 +641,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     }),
 
   setDefaultPipe: (patch) => set((s) => ({ defaultPipe: { ...s.defaultPipe, ...patch } })),
+  setAngleSnap: (angleSnap) => set({ angleSnap }),
+  setSnapAngles: (snapAngles) => set({ snapAngles }),
 
   deleteLinkVertex: (linkId, index) => {
     get().commit();

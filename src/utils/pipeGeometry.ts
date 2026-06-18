@@ -118,3 +118,54 @@ export function bendViolations(pts: Pt[], minR: number, isElbow: (interiorIndex:
 function fmt(v: number): number {
   return Math.round(v * 100) / 100;
 }
+
+/**
+ * Accroche le point « cursor » pour que l'angle du nouveau tronçon (par rapport au
+ * tronçon précédent) corresponde à un angle de tronçon autorisé (0 ou ±allowedDeg).
+ * Sans tronçon précédent (prev null) : pas de contrainte.
+ */
+export function snapDrawPoint(last: Pt, prev: Pt | null, cursor: Pt, allowedDeg: number[]): Pt {
+  if (!prev) return cursor;
+  const pdx = last.x - prev.x;
+  const pdy = last.y - prev.y;
+  if (Math.hypot(pdx, pdy) < 1e-6) return cursor;
+  const ddx = cursor.x - last.x;
+  const ddy = cursor.y - last.y;
+  const dist = Math.hypot(ddx, ddy);
+  if (dist < 1e-6) return cursor;
+  const prevAng = Math.atan2(pdy, pdx);
+  let turn = Math.atan2(ddy, ddx) - prevAng;
+  while (turn <= -Math.PI) turn += 2 * Math.PI;
+  while (turn > Math.PI) turn -= 2 * Math.PI;
+  const turnDeg = (turn * 180) / Math.PI;
+  const candidates = [0];
+  for (const a of allowedDeg) candidates.push(a, -a);
+  let best = 0;
+  let bestD = Infinity;
+  for (const c of candidates) {
+    const d = Math.abs(turnDeg - c);
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  const snapAng = prevAng + (best * Math.PI) / 180;
+  const sdx = Math.cos(snapAng);
+  const sdy = Math.sin(snapAng);
+  const proj = Math.max(dist * 0.1, ddx * sdx + ddy * sdy);
+  return { x: last.x + sdx * proj, y: last.y + sdy * proj };
+}
+
+/** Angle de déviation (degrés) entre le tronçon précédent et le nouveau. */
+export function turnAngleDeg(last: Pt, prev: Pt | null, cursor: Pt): number | null {
+  if (!prev) return null;
+  const pdx = last.x - prev.x;
+  const pdy = last.y - prev.y;
+  const ddx = cursor.x - last.x;
+  const ddy = cursor.y - last.y;
+  if (Math.hypot(pdx, pdy) < 1e-6 || Math.hypot(ddx, ddy) < 1e-6) return null;
+  let turn = Math.atan2(ddy, ddx) - Math.atan2(pdy, pdx);
+  while (turn <= -Math.PI) turn += 2 * Math.PI;
+  while (turn > Math.PI) turn -= 2 * Math.PI;
+  return Math.abs((turn * 180) / Math.PI);
+}

@@ -596,6 +596,15 @@ body {
 .pipe-defaults-bar .pdb-info strong {
   color: var(--brand);
 }
+.pipe-defaults-bar .pdb-snap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+  cursor: pointer;
+  color: var(--text);
+}
 
 /* ---------- Zoom controls ---------- */
 .zoom-controls {
