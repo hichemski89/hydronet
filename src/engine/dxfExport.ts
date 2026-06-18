@@ -1,8 +1,9 @@
 import { Network } from '../types/network';
 
 /**
- * Génère un fichier DXF (R12, ASCII) du réseau : conduites en polylignes,
- * symboles des nœuds/sources/réservoirs/pompes/vannes et étiquettes, par calques.
+ * Génère un fichier DXF (R12, ASCII) du réseau : conduites, symboles des
+ * nœuds/sources/réservoirs/pompes/vannes et étiquettes, par calques.
+ * N'utilise que des entités LINE/CIRCLE/TEXT (compatibles toutes versions AutoCAD).
  * Les coordonnées du modèle (Y vers le haut) correspondent au repère DXF.
  */
 export function buildDxf(network: Network): string {
@@ -34,22 +35,26 @@ export function buildDxf(network: Network): string {
   const sym = Math.max(diag * 0.006, 0.001);
   const txt = sym * 1.3;
 
-  const polyline = (layer: string, pts: { x: number; y: number }[], closed: boolean) => {
-    if (pts.length < 2) return;
-    g(0, 'LWPOLYLINE');
+  const line = (layer: string, x1: number, y1: number, x2: number, y2: number) => {
+    g(0, 'LINE');
     g(8, layer);
-    g(90, pts.length);
-    g(70, closed ? 1 : 0);
-    for (const p of pts) {
-      g(10, num(p.x));
-      g(20, num(p.y));
-    }
+    g(10, num(x1));
+    g(20, num(y1));
+    g(30, 0);
+    g(11, num(x2));
+    g(21, num(y2));
+    g(31, 0);
+  };
+  const polyline = (layer: string, pts: { x: number; y: number }[], closed: boolean) => {
+    for (let i = 0; i < pts.length - 1; i++) line(layer, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+    if (closed && pts.length > 2) line(layer, pts[pts.length - 1].x, pts[pts.length - 1].y, pts[0].x, pts[0].y);
   };
   const circle = (layer: string, cx: number, cy: number, r: number) => {
     g(0, 'CIRCLE');
     g(8, layer);
     g(10, num(cx));
     g(20, num(cy));
+    g(30, 0);
     g(40, num(r));
   };
   const text = (layer: string, x: number, y: number, h: number, s: string) => {
@@ -57,6 +62,7 @@ export function buildDxf(network: Network): string {
     g(8, layer);
     g(10, num(x));
     g(20, num(y));
+    g(30, 0);
     g(40, num(h));
     g(1, s);
   };
@@ -78,16 +84,21 @@ export function buildDxf(network: Network): string {
   g(2, 'HEADER');
   g(9, '$ACADVER');
   g(1, 'AC1009');
+  g(9, '$INSUNITS');
+  g(70, 6); // mètres
   g(9, '$EXTMIN');
   g(10, num(minX - sym));
   g(20, num(minY - sym));
+  g(30, 0);
   g(9, '$EXTMAX');
   g(10, num(maxX + sym));
   g(20, num(maxY + sym));
+  g(30, 0);
   g(0, 'ENDSEC');
 
-  // --- Calques ---
+  // --- Tables : calques ---
   const layers: [string, number][] = [
+    ['0', 7],
     ['CONDUITES', 5],
     ['NOEUDS', 8],
     ['SOURCES', 4],
@@ -115,7 +126,6 @@ export function buildDxf(network: Network): string {
   g(0, 'SECTION');
   g(2, 'ENTITIES');
 
-  // Liens
   for (const lk of Object.values(network.links)) {
     const a = network.nodes[lk.node1];
     const b = network.nodes[lk.node2];
@@ -133,7 +143,6 @@ export function buildDxf(network: Network): string {
     }
   }
 
-  // Nœuds
   for (const nd of Object.values(network.nodes)) {
     if (nd.type === 'junction') {
       circle('NOEUDS', nd.x, nd.y, sym * 0.5);
