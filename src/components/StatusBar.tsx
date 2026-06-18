@@ -7,7 +7,7 @@ const TOOL_HINTS: Record<string, string> = {
   junction: 'Cliquez sur le plan pour ajouter un nœud de demande',
   reservoir: 'Cliquez pour ajouter une bâche à eau / source (charge fixe)',
   tank: 'Cliquez pour ajouter un réservoir de stockage (niveau variable)',
-  pipe: 'Cliquez un nœud de départ, puis le nœud d’arrivée (Échap pour annuler)',
+  pipe: 'Nœud de départ → sommets → nœud d’arrivée · clic droit : poser un coude / annuler (Échap)',
   pump: 'Cliquez le nœud amont puis le nœud aval de la pompe',
   valve: 'Cliquez le nœud amont puis le nœud aval de la vanne',
   profile: 'Cliquez les nœuds dans l’ordre pour tracer le profil en long',

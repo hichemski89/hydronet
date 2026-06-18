@@ -90,6 +90,8 @@ interface PendingLink {
   type: LinkType;
   node1: string;
   vertices: { x: number; y: number }[];
+  /** Coudes posés à la volée pendant le tracé (index de sommet → type). */
+  fittings: Record<number, 'E90' | 'E45'>;
 }
 
 interface NetworkState {
@@ -153,6 +155,8 @@ interface NetworkState {
   addLinkVertex: (x: number, y: number) => void;
   completeLink: (node2: string) => void;
   cancelPendingLink: () => void;
+  setPendingLastFitting: (kind: 'E90' | 'E45' | null) => void;
+  removeLastPendingVertex: () => void;
   updateLink: (id: string, patch: Partial<NetworkLink>) => void;
   deleteLink: (id: string) => void;
   reverseLink: (id: string) => void;
@@ -457,13 +461,34 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     });
   },
 
-  startLink: (type, node1) => set({ pendingLink: { type, node1, vertices: [] } }),
+  startLink: (type, node1) => set({ pendingLink: { type, node1, vertices: [], fittings: {} } }),
   addLinkVertex: (x, y) =>
     set((s) =>
       s.pendingLink
         ? { pendingLink: { ...s.pendingLink, vertices: [...s.pendingLink.vertices, { x, y }] } }
         : s,
     ),
+
+  setPendingLastFitting: (kind) =>
+    set((s) => {
+      const p = s.pendingLink;
+      if (!p || p.vertices.length === 0) return s;
+      const last = p.vertices.length - 1;
+      const fittings = { ...p.fittings };
+      if (kind === null) delete fittings[last];
+      else fittings[last] = kind;
+      return { pendingLink: { ...p, fittings } };
+    }),
+
+  removeLastPendingVertex: () =>
+    set((s) => {
+      const p = s.pendingLink;
+      if (!p || p.vertices.length === 0) return s;
+      const last = p.vertices.length - 1;
+      const fittings = { ...p.fittings };
+      delete fittings[last];
+      return { pendingLink: { ...p, vertices: p.vertices.slice(0, -1), fittings } };
+    }),
 
   completeLink: (node2) => {
     if (get().pendingLink) get().commit();
@@ -482,6 +507,14 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
           link.pn = size.pn;
           link.diameter = size.innerDiameter;
           link.roughness = materialRoughness(mat, s.network.options.headlossFormula);
+        }
+        // Coudes posés pendant le tracé
+        if (Object.keys(p.fittings).length) {
+          const f: Record<string, 'E90' | 'E45'> = {};
+          for (const [k, v] of Object.entries(p.fittings)) {
+            if (Number(k) < (link.vertices?.length ?? 0)) f[k] = v;
+          }
+          if (Object.keys(f).length) link.fittings = f;
         }
       }
       if (s.autoLength && link.type === 'pipe') {

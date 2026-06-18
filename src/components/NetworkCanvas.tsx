@@ -68,6 +68,8 @@ export default function NetworkCanvas() {
   const completeLink = useNetworkStore((s) => s.completeLink);
   const cancelPendingLink = useNetworkStore((s) => s.cancelPendingLink);
   const pendingLink = useNetworkStore((s) => s.pendingLink);
+  const setPendingLastFitting = useNetworkStore((s) => s.setPendingLastFitting);
+  const removeLastPendingVertex = useNetworkStore((s) => s.removeLastPendingVertex);
   const deleteSelection = useNetworkStore((s) => s.deleteSelection);
   const commit = useNetworkStore((s) => s.commit);
   const undo = useNetworkStore((s) => s.undo);
@@ -528,6 +530,25 @@ export default function NetworkCanvas() {
     const mp = screenToModel(e.clientX - rect.left, e.clientY - rect.top);
 
     let items: MenuItem[];
+    // Menu pendant le tracé d'une conduite
+    if (pendingLink) {
+      const hasV = pendingLink.vertices.length > 0;
+      items = [];
+      if (pendingLink.type === 'pipe' && hasV) {
+        const last = pendingLink.vertices.length - 1;
+        const cur = pendingLink.fittings[last];
+        items.push(
+          { label: `Dernier sommet : Coude 90°${cur === 'E90' ? ' ✓' : ''}`, icon: '⌐', onClick: () => setPendingLastFitting('E90') },
+          { label: `Dernier sommet : Coude 45°${cur === 'E45' ? ' ✓' : ''}`, icon: '⌐', onClick: () => setPendingLastFitting('E45') },
+          { label: `Dernier sommet : courbure libre${cur ? '' : ' ✓'}`, onClick: () => setPendingLastFitting(null) },
+          { type: 'separator' },
+        );
+      }
+      if (hasV) items.push({ label: 'Annuler le dernier sommet', icon: '↶', onClick: removeLastPendingVertex });
+      items.push({ label: 'Annuler le tracé', icon: '✕', danger: true, onClick: cancelPendingLink });
+      setMenu({ x: e.clientX, y: e.clientY, items });
+      return;
+    }
     if (vtx !== null && editingVertexLink) {
       const idx = parseInt(vtx);
       const lk = network.links[editingVertexLink];
@@ -914,13 +935,15 @@ export default function NetworkCanvas() {
     if (!a) return null;
     const modelPts = [a, ...pendingLink.vertices, cursorModel];
     const pts = modelPts.map(modelToScreen);
+    const pendFit = pendingLink.fittings;
+    const isSharp = (vi: number) => !!pendFit[vi];
     const minRm = pendingLink.type === 'pipe' ? minBendRadiusMeters(defaultPipe.material, defaultPipe.dn) : null;
     let path: string;
     let violations: number[] = [];
     if (display.smoothPipes && minRm != null) {
       const screenR = (minRm / metersPerUnit) * view.scale;
-      path = roundedPath(pts, () => screenR, () => false);
-      violations = bendViolations(modelPts, minRm / metersPerUnit, () => false);
+      path = roundedPath(pts, () => screenR, isSharp);
+      violations = bendViolations(modelPts, minRm / metersPerUnit, isSharp);
     } else {
       path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     }
@@ -933,6 +956,19 @@ export default function NetworkCanvas() {
             DN{defaultPipe.dn} · R≥{minRm.toFixed(2)}m{violations.length ? ' ⚠ trop serré' : ''}
           </text>
         )}
+        {/* Coudes posés à la volée */}
+        {Object.entries(pendFit).map(([vi, kind]) => {
+          const sp = pts[Number(vi) + 1];
+          if (!sp) return null;
+          return (
+            <g key={`pf${vi}`}>
+              <rect x={sp.x - 5} y={sp.y - 5} width={10} height={10} rx={2} transform={`rotate(45 ${sp.x} ${sp.y})`} fill="#fde68a" stroke="#b45309" strokeWidth={1.4} />
+              <text x={sp.x} y={sp.y - 8} fontSize={9} fontWeight={700} textAnchor="middle" fill="#b45309" style={{ userSelect: 'none' }}>
+                {kind === 'E90' ? '90°' : '45°'}
+              </text>
+            </g>
+          );
+        })}
         {violations.map((vi) => {
           const sp = pts[vi + 1];
           return <circle key={vi} cx={sp.x} cy={sp.y} r={7} fill="none" stroke="#dc2626" strokeWidth={2} />;
