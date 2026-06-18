@@ -90,8 +90,8 @@ export function buildDxf(network: Network, results?: SimulationResults | null, t
   const drawTable = (ox: number, oy: number, title: string, headers: string[], rows: string[][]): number => {
     text('TABLEAU', ox, oy, txt * 1.2, title);
     const top = oy - txt * 2.2;
-    const pad = txt * 0.4;
-    const charW = txt * 0.62;
+    const pad = txt * 0.6;
+    const charW = txt * 0.9;
     const colW = headers.map((h, c) => {
       let mx = h.length;
       for (const r of rows) mx = Math.max(mx, (r[c] ?? '').length);
@@ -132,6 +132,7 @@ export function buildDxf(network: Network, results?: SimulationResults | null, t
     ['RESERVOIRS', 3],
     ['POMPES', 1],
     ['VANNES', 2],
+    ['ECOULEMENT', 6],
     ['ETIQUETTES', 7],
     ['TABLEAU', 7],
     ['LEGENDE', 7],
@@ -168,6 +169,35 @@ export function buildDxf(network: Network, results?: SimulationResults | null, t
     } else {
       polyline('VANNES', pts, false);
       square('VANNES', mid.x, mid.y, sym * 0.6);
+    }
+
+    // Flèche de sens d'écoulement (sur le segment central)
+    if (results) {
+      const flow = results.links[lk.id]?.flow[timeIndex];
+      if (flow != null && isFinite(flow) && Math.abs(flow) > 1e-6) {
+        const si = Math.floor((pts.length - 1) / 2);
+        const p0 = pts[si];
+        const p1 = pts[si + 1];
+        let dx = p1.x - p0.x;
+        let dy = p1.y - p0.y;
+        const len = Math.hypot(dx, dy) || 1;
+        dx /= len;
+        dy /= len;
+        if (flow < 0) {
+          dx = -dx;
+          dy = -dy;
+        }
+        const mx = (p0.x + p1.x) / 2;
+        const my = (p0.y + p1.y) / 2;
+        const ah = sym * 1.2;
+        const tipx = mx + dx * ah * 0.5;
+        const tipy = my + dy * ah * 0.5;
+        line('ECOULEMENT', mx - dx * ah * 0.5, my - dy * ah * 0.5, tipx, tipy);
+        const ang = Math.atan2(dy, dx);
+        const barb = sym * 0.7;
+        line('ECOULEMENT', tipx, tipy, tipx - Math.cos(ang - 0.45) * barb, tipy - Math.sin(ang - 0.45) * barb);
+        line('ECOULEMENT', tipx, tipy, tipx - Math.cos(ang + 0.45) * barb, tipy - Math.sin(ang + 0.45) * barb);
+      }
     }
   }
   for (const nd of Object.values(network.nodes)) {
