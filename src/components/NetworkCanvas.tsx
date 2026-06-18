@@ -325,7 +325,9 @@ export default function NetworkCanvas() {
       const ci = cornerInfo(it.targetId, it.radiusCorner);
       if (ci) {
         const d = Math.max(4, (sp.x - ci.P.x) * ci.bx + (sp.y - ci.P.y) * ci.by);
-        const rm = (d * metersPerUnit) / view.scale;
+        let rm = (d * metersPerUnit) / view.scale;
+        // Borne au rayon maximal géométrique du coin (l'arc ne peut pas grandir au-delà)
+        rm = Math.min(rm, cornerMaxRadiusModel(it.targetId, it.radiusCorner));
         setPipeBendRadius(it.targetId, rm);
       }
       it.lastScreen = sp;
@@ -475,6 +477,31 @@ export default function NetworkCanvas() {
     let by = -u1y + u2y;
     const bl = Math.hypot(bx, by) || 1;
     return { P, bx: bx / bl, by: by / bl };
+  };
+
+  // Rayon de courbure maximal géométriquement possible à un coin (unités modèle)
+  const cornerMaxRadiusModel = (linkId: string, cornerIdx: number): number => {
+    const link = network.links[linkId];
+    if (!link) return Infinity;
+    const n1 = network.nodes[link.node1];
+    const n2 = network.nodes[link.node2];
+    if (!n1 || !n2) return Infinity;
+    const mp = [n1, ...(link.vertices ?? []), n2];
+    if (cornerIdx < 1 || cornerIdx > mp.length - 2) return Infinity;
+    const A = mp[cornerIdx - 1];
+    const P = mp[cornerIdx];
+    const B = mp[cornerIdx + 1];
+    const l1 = Math.hypot(P.x - A.x, P.y - A.y);
+    const l2 = Math.hypot(B.x - P.x, B.y - P.y);
+    const u1x = (P.x - A.x) / (l1 || 1);
+    const u1y = (P.y - A.y) / (l1 || 1);
+    const u2x = (B.x - P.x) / (l2 || 1);
+    const u2y = (B.y - P.y) / (l2 || 1);
+    const dot = Math.max(-1, Math.min(1, u1x * u2x + u1y * u2y));
+    const delta = Math.acos(dot);
+    if (delta < 0.02) return Infinity;
+    const tanMax = Math.min(l1, l2) * 0.5;
+    return tanMax / Math.tan(delta / 2);
   };
 
   // Premier coin (sommet) non-coude d'une conduite, pour la poignée de rayon
