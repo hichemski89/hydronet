@@ -160,7 +160,7 @@ export function buildDxf(network: Network, results?: SimulationResults | null, t
     const b = network.nodes[lk.node2];
     if (!a || !b) continue;
     const pts = [a, ...(lk.vertices ?? []), b];
-    const mid = pts[Math.floor(pts.length / 2)];
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     if (lk.type === 'pipe') polyline('CONDUITES', pts, false);
     else if (lk.type === 'pump') {
       polyline('POMPES', pts, false);
