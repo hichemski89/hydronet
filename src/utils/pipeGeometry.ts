@@ -68,7 +68,7 @@ export function roundedPath(pts: Pt[], r: number, isSharp: (interiorIndex: numbe
     const t2x = P.x + u2x * tan;
     const t2y = P.y + u2y * tan;
     const cross = u1x * u2y - u1y * u2x;
-    const sweep = cross < 0 ? 1 : 0;
+    const sweep = cross < 0 ? 0 : 1;
     d += `L${fmt(t1x)},${fmt(t1y)}A${fmt(effR)},${fmt(effR)} 0 0 ${sweep} ${fmt(t2x)},${fmt(t2y)}`;
   }
   const last = pts[pts.length - 1];
