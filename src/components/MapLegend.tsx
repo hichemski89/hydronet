@@ -9,7 +9,7 @@ import {
   LINK_METRICS,
 } from '../utils/colorScale';
 import { nodeDomain, linkDomain, nodeValue, linkValue } from '../utils/resultsAccess';
-import { STATUS_COLOR, pressureStatus, velocityStatus } from '../utils/compliance';
+import { STATUS_COLOR, VELOCITY_STATUS_COLOR, pressureStatus, velocityStatus } from '../utils/compliance';
 import { flowUnitLabel } from '../utils/format';
 
 const GRADIENT_STEPS = 24;
@@ -142,15 +142,17 @@ export default function MapLegend() {
           </div>
           <div className="legend-status">
             <span>
-              <i style={{ background: STATUS_COLOR.low }} /> Trop faible &lt; {criteria.minVelocity}
+              <i style={{ background: VELOCITY_STATUS_COLOR.low }} /> Trop faible &lt;{' '}
+              {criteria.minVelocity}
               <b>{lCount.low}</b>
             </span>
             <span>
-              <i style={{ background: STATUS_COLOR.ok }} /> Correcte
+              <i style={{ background: VELOCITY_STATUS_COLOR.ok }} /> Correcte
               <b>{lCount.ok}</b>
             </span>
             <span>
-              <i style={{ background: STATUS_COLOR.high }} /> Trop élevée &gt; {criteria.maxVelocity}
+              <i style={{ background: VELOCITY_STATUS_COLOR.high }} /> Trop élevée &gt;{' '}
+              {criteria.maxVelocity}
               <b>{lCount.high}</b>
             </span>
           </div>

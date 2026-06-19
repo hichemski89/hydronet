@@ -9,6 +9,17 @@ export const STATUS_COLOR: Record<Status, string> = {
   na: '#cbd5e1', // gris (non applicable)
 };
 
+/**
+ * Couleurs spécifiques à la vitesse : les deux problèmes sont visuellement
+ * distincts — trop faible = stagnation (gris-bleu), trop élevée = érosion (rouge).
+ */
+export const VELOCITY_STATUS_COLOR: Record<Status, string> = {
+  ok: '#16a34a', // vert (vitesse correcte)
+  low: '#6b8caf', // gris-bleu (stagnation, dépôts)
+  high: '#dc2626', // rouge vif (érosion, pertes de charge)
+  na: '#cbd5e1',
+};
+
 export const STATUS_LABEL: Record<Status, string> = {
   ok: 'Conforme',
   low: 'Insuffisant',

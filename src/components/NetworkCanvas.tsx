@@ -9,7 +9,7 @@ import {
   nodeDomain,
   linkDomain,
 } from '../utils/resultsAccess';
-import { pressureStatus, velocityStatus, STATUS_COLOR } from '../utils/compliance';
+import { pressureStatus, velocityStatus, STATUS_COLOR, VELOCITY_STATUS_COLOR } from '../utils/compliance';
 import { roundedPath, bendViolations, effectiveBendRadius, snapDrawPoint, turnAngleDeg, vertexDeflection } from '../utils/pipeGeometry';
 import { minBendRadiusMeters } from '../data/pipeCatalog';
 import ContextMenu, { MenuItem } from './ContextMenu';
@@ -704,7 +704,7 @@ export default function NetworkCanvas() {
       velAbs = Math.abs(linkValue(results, linkId, 'velocity', timeIndex) ?? 0);
       if (colorMode === 'compliance' && link.type === 'pipe') {
         const v = linkValue(results, linkId, 'velocity', timeIndex);
-        stroke = STATUS_COLOR[velocityStatus(v, network.criteria)];
+        stroke = VELOCITY_STATUS_COLOR[velocityStatus(v, network.criteria)];
       } else if (lDomain && !isNodeMetric(linkMetric)) {
         const v = linkValue(results, linkId, linkMetric, timeIndex);
         if (v != null && isFinite(v)) {
