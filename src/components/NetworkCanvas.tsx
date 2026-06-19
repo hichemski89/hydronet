@@ -207,6 +207,10 @@ export default function NetworkCanvas() {
   // Domaines de couleur (au temps courant)
   const nDomain = results ? nodeDomain(results, nodeMetric, timeIndex) : null;
   const lDomain = results ? linkDomain(results, linkMetric, timeIndex) : null;
+  // Vitesse négligeable -> réseau considéré « sans écoulement » (évite de colorer
+  // le bruit numérique et d'afficher de fausses flèches sur un réseau statique).
+  const VEL_EPS = 0.01; // m/s (ou ft/s)
+  const staticFlow = results ? linkDomain(results, 'velocity', timeIndex).max < VEL_EPS : false;
 
   // --- Gestion des événements ---
   const onPointerDown = (e: React.PointerEvent) => {
@@ -693,16 +697,19 @@ export default function NetworkCanvas() {
       width = Math.max(1.5, Math.min(10, link.diameter / 50));
     }
     let flowVal: number | undefined;
+    let velAbs = 0;
     let linkText: string | null = null;
     if (results && showOverlay) {
       flowVal = linkValue(results, linkId, 'flow', timeIndex);
+      velAbs = Math.abs(linkValue(results, linkId, 'velocity', timeIndex) ?? 0);
       if (colorMode === 'compliance' && link.type === 'pipe') {
         const v = linkValue(results, linkId, 'velocity', timeIndex);
         stroke = STATUS_COLOR[velocityStatus(v, network.criteria)];
       } else if (lDomain && !isNodeMetric(linkMetric)) {
         const v = linkValue(results, linkId, linkMetric, timeIndex);
         if (v != null && isFinite(v)) {
-          stroke = colorFor(normalize(Math.abs(v), lDomain));
+          // réseau sans écoulement -> bas de l'échelle (bleu), sinon normalisation
+          stroke = colorFor(staticFlow ? 0 : normalize(Math.abs(v), lDomain));
         }
       }
       if (display.showLinkValues) {
@@ -726,8 +733,9 @@ export default function NetworkCanvas() {
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        {/* Flèche de sens d'écoulement */}
-        {results && showOverlay && display.showFlowArrows && flowVal != null && Math.abs(flowVal) > 1e-6 && (
+        {/* Flèche de sens d'écoulement (seulement si écoulement réel, pas du bruit) */}
+        {results && showOverlay && display.showFlowArrows && flowVal != null &&
+          (velAbs >= VEL_EPS || (link.type !== 'pipe' && Math.abs(flowVal) > 1e-3)) && (
           <FlowArrow pts={pts} reversed={flowVal < 0} size={display.arrowSize} />
         )}
         {/* Symbole de pompe / vanne */}
