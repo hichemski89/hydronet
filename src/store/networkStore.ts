@@ -85,7 +85,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   linkWidth: 3,
   widthByDiameter: false,
   backgroundColor: '#f8fafc',
-  labelSize: 11,
+  labelSize: 12,
   arrowSize: 6,
   smoothPipes: true,
 };
