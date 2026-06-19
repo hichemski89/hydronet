@@ -16,6 +16,7 @@ import PatternManager from './components/PatternManager';
 import DxfExportDialog from './components/DxfExportDialog';
 import SimSettingsDialog from './components/SimSettingsDialog';
 import SelectByFilterDialog from './components/SelectByFilterDialog';
+import LicenseGate from './components/LicenseGate';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -51,6 +52,7 @@ export default function App() {
       <DxfExportDialog />
       <SimSettingsDialog />
       <SelectByFilterDialog />
+      <LicenseGate />
     </div>
   );
 }

@@ -279,6 +279,39 @@ body {
   letter-spacing: 0.02em;
   color: var(--text);
 }
+
+/* Contrat de licence */
+.license-overlay {
+  z-index: 100;
+}
+.license-modal {
+  width: 640px;
+  max-width: 92vw;
+}
+.license-about {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+.license-text {
+  margin: 0;
+  max-height: 52vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.license-foot-note {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
 .legend-toggle {
   margin-bottom: 8px;
   font-weight: 600;

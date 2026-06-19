@@ -48,6 +48,7 @@ export default function Toolbar() {
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
   const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
   const setSelectDialogOpen = useNetworkStore((s) => s.setSelectDialogOpen);
+  const setLicenseOpen = useNetworkStore((s) => s.setLicenseOpen);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -110,6 +111,8 @@ export default function Toolbar() {
           onClick: () => loadRecentProject(r.id),
         }))
       : [{ label: 'Aucun fichier récent', disabled: true } as MenuItem]),
+    { type: 'separator' },
+    { label: 'À propos / Licence…', icon: '©', onClick: () => setLicenseOpen(true) },
   ];
 
   const libMenuItems: MenuItem[] = [

@@ -1,3 +1,7 @@
+/*
+ * HydroNet — © 2026 HydroNet — Tous droits réservés. Logiciel propriétaire.
+ * Toute copie, distribution ou ingénierie inverse non autorisée est interdite.
+ */
 // Process principal Electron — emballe l'application web sans la modifier.
 // En production, on sert le dossier `dist/` via un petit serveur HTTP local
 // (port fixe) afin que le chargement du WASM (epanet-js) et le localStorage

@@ -216,6 +216,8 @@ interface NetworkState {
   setSimSettingsOpen: (open: boolean) => void;
   selectDialogOpen: boolean;
   setSelectDialogOpen: (open: boolean) => void;
+  licenseOpen: boolean;
+  setLicenseOpen: (open: boolean) => void;
   patternDialogOpen: boolean;
   setPatternDialogOpen: (open: boolean) => void;
   addPattern: () => string;
@@ -398,6 +400,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   dxfDialogOpen: false,
   simSettingsOpen: false,
   selectDialogOpen: false,
+  licenseOpen: false,
   patternDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
@@ -847,6 +850,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setDxfDialogOpen: (dxfDialogOpen) => set({ dxfDialogOpen }),
   setSimSettingsOpen: (simSettingsOpen) => set({ simSettingsOpen }),
   setSelectDialogOpen: (selectDialogOpen) => set({ selectDialogOpen }),
+  setLicenseOpen: (licenseOpen) => set({ licenseOpen }),
   setPatternDialogOpen: (patternDialogOpen) => set({ patternDialogOpen }),
 
   addPattern: () => {
