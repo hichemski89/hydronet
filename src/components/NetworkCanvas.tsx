@@ -1103,7 +1103,7 @@ function nodeFill(type: NetworkNode['type']): string {
     case 'junction':
       return '#9ca3af';
     case 'reservoir':
-      return '#2563eb';
+      return '#0d9488';
     case 'tank':
       return '#0891b2';
   }
