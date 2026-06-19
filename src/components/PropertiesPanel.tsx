@@ -279,9 +279,26 @@ function PatternSelect({
   label?: string;
 }) {
   const patterns = useNetworkStore((s) => s.network.patterns);
+  const setPatternDialogOpen = useNetworkStore((s) => s.setPatternDialogOpen);
+  const addPattern = useNetworkStore((s) => s.addPattern);
   return (
     <label className="field">
-      <span className="field-label">{label}</span>
+      <span className="field-label">
+        {label}
+        <button
+          type="button"
+          className="link-btn"
+          onClick={() => {
+            if (Object.keys(patterns).length === 0) {
+              const id = addPattern();
+              onChange(id);
+            }
+            setPatternDialogOpen(true);
+          }}
+        >
+          Gérer…
+        </button>
+      </span>
       <select
         value={value ?? ''}
         onFocus={() => useNetworkStore.getState().commit()}

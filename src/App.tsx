@@ -12,6 +12,7 @@ import PipeDefaultsBar from './components/PipeDefaultsBar';
 import BackdropPanel from './components/BackdropPanel';
 import DisplaySettingsDialog from './components/DisplaySettingsDialog';
 import CurveManager from './components/CurveManager';
+import PatternManager from './components/PatternManager';
 import DxfExportDialog from './components/DxfExportDialog';
 import SimSettingsDialog from './components/SimSettingsDialog';
 import { useNetworkStore } from './store/networkStore';
@@ -45,6 +46,7 @@ export default function App() {
       <StatusBar />
       <DisplaySettingsDialog />
       <CurveManager />
+      <PatternManager />
       <DxfExportDialog />
       <SimSettingsDialog />
     </div>

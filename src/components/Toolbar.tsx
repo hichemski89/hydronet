@@ -44,6 +44,7 @@ export default function Toolbar() {
   const loadRecentProject = useNetworkStore((s) => s.loadRecentProject);
   const setBackdropPanelOpen = useNetworkStore((s) => s.setBackdropPanelOpen);
   const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
+  const setPatternDialogOpen = useNetworkStore((s) => s.setPatternDialogOpen);
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
   const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
   const undo = useNetworkStore((s) => s.undo);
@@ -226,6 +227,13 @@ export default function Toolbar() {
           title="Bibliothèque de courbes (caractéristique, rendement, volume…)"
         >
           📈 Courbes
+        </button>
+        <button
+          className="btn"
+          onClick={() => setPatternDialogOpen(true)}
+          title="Courbes de modulation (coefficients horaires de demande / vitesse)"
+        >
+          ⏱ Modulations
         </button>
 
         <span className="toolbar-sep-v" />

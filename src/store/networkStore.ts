@@ -13,6 +13,7 @@ import {
   SimpleControl,
   Curve,
   CurveType,
+  Pattern,
   DEFAULT_OPTIONS,
   DEFAULT_CRITERIA,
 } from '../types/network';
@@ -195,6 +196,12 @@ interface NetworkState {
   setDxfDialogOpen: (open: boolean) => void;
   simSettingsOpen: boolean;
   setSimSettingsOpen: (open: boolean) => void;
+  patternDialogOpen: boolean;
+  setPatternDialogOpen: (open: boolean) => void;
+  addPattern: () => string;
+  updatePattern: (id: string, patch: Partial<Pattern>) => void;
+  renamePattern: (id: string, newId: string) => void;
+  deletePattern: (id: string) => void;
   addCurve: (type: CurveType) => string;
   updateCurve: (id: string, patch: Partial<Curve>) => void;
   renameCurve: (id: string, newId: string) => void;
@@ -369,6 +376,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   curveDialogOpen: false,
   dxfDialogOpen: false,
   simSettingsOpen: false,
+  patternDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
   definingClip: false,
@@ -811,6 +819,92 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setCurveDialogOpen: (curveDialogOpen) => set({ curveDialogOpen }),
   setDxfDialogOpen: (dxfDialogOpen) => set({ dxfDialogOpen }),
   setSimSettingsOpen: (simSettingsOpen) => set({ simSettingsOpen }),
+  setPatternDialogOpen: (patternDialogOpen) => set({ patternDialogOpen }),
+
+  addPattern: () => {
+    const s = get();
+    let i = 1;
+    while (s.network.patterns[`P${i}`]) i++;
+    const id = `P${i}`;
+    // Modulation journalière résidentielle type sur 24 h (coef. horaires).
+    const multipliers = [
+      0.6, 0.5, 0.45, 0.45, 0.5, 0.7, 1.1, 1.4, 1.5, 1.3, 1.1, 1.0,
+      1.0, 0.95, 0.9, 0.95, 1.1, 1.3, 1.45, 1.4, 1.2, 1.0, 0.8, 0.65,
+    ];
+    get().commit();
+    set((st) => ({
+      network: {
+        ...st.network,
+        patterns: { ...st.network.patterns, [id]: { id, multipliers } },
+      },
+    }));
+    return id;
+  },
+
+  updatePattern: (id, patch) =>
+    set((s) => {
+      const p = s.network.patterns[id];
+      if (!p) return s;
+      return {
+        network: {
+          ...s.network,
+          patterns: { ...s.network.patterns, [id]: { ...p, ...patch } },
+        },
+      };
+    }),
+
+  renamePattern: (id, newId) =>
+    set((s) => {
+      const p = s.network.patterns[id];
+      if (!p || !newId || newId === id || s.network.patterns[newId]) return s;
+      const patterns = { ...s.network.patterns };
+      delete patterns[id];
+      patterns[newId] = { ...p, id: newId };
+      // met à jour les références (nœuds + pompes)
+      const nodes = { ...s.network.nodes };
+      for (const nid of Object.keys(nodes)) {
+        const nd = nodes[nid];
+        if (nd.type === 'junction' && nd.pattern === id) nodes[nid] = { ...nd, pattern: newId };
+      }
+      const links = { ...s.network.links };
+      for (const lid of Object.keys(links)) {
+        const lk = links[lid];
+        if (lk.type === 'pump' && (lk.speedPattern === id || lk.pricePattern === id)) {
+          links[lid] = {
+            ...lk,
+            speedPattern: lk.speedPattern === id ? newId : lk.speedPattern,
+            pricePattern: lk.pricePattern === id ? newId : lk.pricePattern,
+          };
+        }
+      }
+      return { network: { ...s.network, patterns, nodes, links } };
+    }),
+
+  deletePattern: (id) => {
+    get().commit();
+    set((s) => {
+      const patterns = { ...s.network.patterns };
+      delete patterns[id];
+      // nettoie les références
+      const nodes = { ...s.network.nodes };
+      for (const nid of Object.keys(nodes)) {
+        const nd = nodes[nid];
+        if (nd.type === 'junction' && nd.pattern === id) nodes[nid] = { ...nd, pattern: undefined };
+      }
+      const links = { ...s.network.links };
+      for (const lid of Object.keys(links)) {
+        const lk = links[lid];
+        if (lk.type === 'pump' && (lk.speedPattern === id || lk.pricePattern === id)) {
+          links[lid] = {
+            ...lk,
+            speedPattern: lk.speedPattern === id ? undefined : lk.speedPattern,
+            pricePattern: lk.pricePattern === id ? undefined : lk.pricePattern,
+          };
+        }
+      }
+      return { network: { ...s.network, patterns, nodes, links } };
+    });
+  },
 
   addCurve: (type) => {
     const s = get();
