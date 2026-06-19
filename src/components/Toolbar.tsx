@@ -185,6 +185,7 @@ export default function Toolbar() {
       </span>
 
       <div className="toolbar-group">
+        {/* 1 · Fichier */}
         <button
           className={`btn btn-menu ${fileMenu ? 'btn-menu-open' : ''}`}
           onClick={openFileMenu}
@@ -199,6 +200,27 @@ export default function Toolbar() {
           onChange={onOpenFile}
           style={{ display: 'none' }}
         />
+
+        <span className="toolbar-sep-v" />
+
+        {/* 2 · Édition */}
+        <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="Annuler (Ctrl+Z)">
+          <UndoIcon size={18} />
+        </button>
+        <button className="btn btn-icon" onClick={redo} disabled={!canRedo} title="Rétablir (Ctrl+Y)">
+          <RedoIcon size={18} />
+        </button>
+        <button
+          className={`btn btn-icon ${snapToGrid ? 'btn-toggle-on' : ''}`}
+          onClick={toggleSnap}
+          title="Magnétisme sur grille"
+        >
+          <GridIcon size={18} />
+        </button>
+
+        <span className="toolbar-sep-v" />
+
+        {/* 3 · Données */}
         <button
           className="btn"
           onClick={() => setBackdropPanelOpen(true)}
@@ -213,21 +235,10 @@ export default function Toolbar() {
         >
           📈 Courbes
         </button>
+
         <span className="toolbar-sep-v" />
-        <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="Annuler (Ctrl+Z)">
-          <UndoIcon size={18} />
-        </button>
-        <button className="btn btn-icon" onClick={redo} disabled={!canRedo} title="Rétablir (Ctrl+Y)">
-          <RedoIcon size={18} />
-        </button>
-        <button
-          className={`btn btn-icon ${snapToGrid ? 'btn-toggle-on' : ''}`}
-          onClick={toggleSnap}
-          title="Magnétisme sur grille"
-        >
-          <GridIcon size={18} />
-        </button>
-        <span className="toolbar-sep-v" />
+
+        {/* 4 · Simulation */}
         <button
           className="btn btn-primary"
           onClick={onRun}
@@ -241,7 +252,11 @@ export default function Toolbar() {
             </>
           )}
         </button>
-        <button className="btn" onClick={onExportPdf} disabled={busy || !results}>
+
+        <span className="toolbar-sep-v" />
+
+        {/* 5 · Export */}
+        <button className="btn" onClick={onExportPdf} disabled={busy || !results} title="Générer le rapport PDF">
           <PdfIcon size={16} /> Rapport PDF
         </button>
         <button className="btn" onClick={onExportInp} title="Exporter au format EPANET .inp">
