@@ -1222,6 +1222,25 @@ body {
   color: var(--muted, #94a3b8);
   min-width: 26px;
 }
+.set-toggle {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+.filter-conditions {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  transition: opacity 0.15s, filter 0.15s;
+}
+.filter-conditions.filter-disabled {
+  opacity: 0.4;
+  filter: blur(1.2px);
+  pointer-events: none;
+  user-select: none;
+}
 
 /* ---------- Sidebar ---------- */
 .sidebar {

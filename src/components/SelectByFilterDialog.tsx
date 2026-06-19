@@ -245,7 +245,7 @@ export default function SelectByFilterDialog() {
   const [v2, setV2] = useState(1);
   const [text, setText] = useState('');
   const [combine, setCombine] = useState<Combine>('new');
-  const [noCond, setNoCond] = useState(false);
+  const [useCond, setUseCond] = useState(false);
 
   const props = propsFor(family);
   const prop = props.find((p) => p.id === propId) ?? props[0];
@@ -264,10 +264,10 @@ export default function SelectByFilterDialog() {
 
   const result = useMemo(
     () =>
-      noCond
-        ? { ...allOfFamily(network, family), needsResults: false }
-        : evaluate(network, results, ti, family, prop, agg, op, v1, v2, text),
-    [noCond, network, results, ti, family, prop, agg, op, v1, v2, text],
+      useCond
+        ? evaluate(network, results, ti, family, prop, agg, op, v1, v2, text)
+        : { ...allOfFamily(network, family), needsResults: false },
+    [useCond, network, results, ti, family, prop, agg, op, v1, v2, text],
   );
 
   if (!open) return null;
@@ -314,83 +314,83 @@ export default function SelectByFilterDialog() {
             </span>
           </label>
 
-          <label className="set-field" style={{ cursor: 'pointer' }}>
+          <label className="set-field set-toggle" style={{ cursor: 'pointer' }}>
             <span className="set-label">
-              Tout sélectionner
-              <em className="set-hint">sans aucune condition</em>
+              Activer des conditions de sélection
+              <em className="set-hint">filtrer par vitesse, pression, diamètre…</em>
             </span>
             <span className="set-input">
               <input
                 type="checkbox"
-                checked={noCond}
-                onChange={(e) => setNoCond(e.target.checked)}
+                checked={useCond}
+                onChange={(e) => setUseCond(e.target.checked)}
                 style={{ width: 18, height: 18 }}
               />
             </span>
           </label>
 
-          {!noCond && (
-          <label className="set-field">
-            <span className="set-label">Propriété</span>
-            <span className="set-input">
-              <select value={prop.id} onChange={(e) => setPropId(e.target.value)}>
-                {props.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
-            </span>
-          </label>
-          )}
-
-          {!noCond && isRes && (
+          <fieldset className={`filter-conditions ${useCond ? '' : 'filter-disabled'}`} disabled={!useCond}>
             <label className="set-field">
-              <span className="set-label">
-                Valeur évaluée
-                <em className="set-hint">sur la simulation</em>
-              </span>
+              <span className="set-label">Propriété</span>
               <span className="set-input">
-                <select value={agg} onChange={(e) => setAgg(e.target.value as Agg)}>
-                  <option value="current">Au pas de temps affiché</option>
-                  <option value="max">Maximum sur la période</option>
-                  <option value="min">Minimum sur la période</option>
-                  <option value="avg">Moyenne sur la période</option>
+                <select value={prop.id} onChange={(e) => setPropId(e.target.value)}>
+                  {props.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
                 </select>
               </span>
             </label>
-          )}
 
-          {!noCond && (isStr ? (
-            <label className="set-field">
-              <span className="set-label">Contient le texte</span>
-              <span className="set-input">
-                <input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="ex. PEHD" style={{ width: 150, textAlign: 'left' }} />
-              </span>
-            </label>
-          ) : (
-            <>
+            {isRes && (
               <label className="set-field">
-                <span className="set-label">Condition</span>
+                <span className="set-label">
+                  Valeur évaluée
+                  <em className="set-hint">sur la simulation</em>
+                </span>
                 <span className="set-input">
-                  <select value={op} onChange={(e) => setOp(e.target.value as Op)}>
-                    {OPS.map((o) => (
-                      <option key={o.id} value={o.id}>{o.label}</option>
-                    ))}
+                  <select value={agg} onChange={(e) => setAgg(e.target.value as Agg)}>
+                    <option value="current">Au pas de temps affiché</option>
+                    <option value="max">Maximum sur la période</option>
+                    <option value="min">Minimum sur la période</option>
+                    <option value="avg">Moyenne sur la période</option>
                   </select>
-                  <input type="number" value={v1} step="any" onChange={(e) => setV1(parseFloat(e.target.value) || 0)} />
-                  {unit && <span className="set-suffix">{unit}</span>}
                 </span>
               </label>
-              {op === 'between' && (
+            )}
+
+            {isStr ? (
+              <label className="set-field">
+                <span className="set-label">Contient le texte</span>
+                <span className="set-input">
+                  <input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="ex. PEHD" style={{ width: 150, textAlign: 'left' }} />
+                </span>
+              </label>
+            ) : (
+              <>
                 <label className="set-field">
-                  <span className="set-label">et</span>
+                  <span className="set-label">Condition</span>
                   <span className="set-input">
-                    <input type="number" value={v2} step="any" onChange={(e) => setV2(parseFloat(e.target.value) || 0)} />
+                    <select value={op} onChange={(e) => setOp(e.target.value as Op)}>
+                      {OPS.map((o) => (
+                        <option key={o.id} value={o.id}>{o.label}</option>
+                      ))}
+                    </select>
+                    <input type="number" value={v1} step="any" onChange={(e) => setV1(parseFloat(e.target.value) || 0)} />
                     {unit && <span className="set-suffix">{unit}</span>}
                   </span>
                 </label>
-              )}
-            </>
-          ))}
+                {op === 'between' && (
+                  <label className="set-field">
+                    <span className="set-label">et</span>
+                    <span className="set-input">
+                      <input type="number" value={v2} step="any" onChange={(e) => setV2(parseFloat(e.target.value) || 0)} />
+                      {unit && <span className="set-suffix">{unit}</span>}
+                    </span>
+                  </label>
+                )}
+              </>
+            )}
+          </fieldset>
 
           <label className="set-field">
             <span className="set-label">Mode de sélection</span>
