@@ -167,6 +167,13 @@ export const ExportIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const SettingsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3" />
+  </Svg>
+);
+
 export const ZoomInIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="10.5" cy="10.5" r="6.5" />

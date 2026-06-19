@@ -13,6 +13,7 @@ import BackdropPanel from './components/BackdropPanel';
 import DisplaySettingsDialog from './components/DisplaySettingsDialog';
 import CurveManager from './components/CurveManager';
 import DxfExportDialog from './components/DxfExportDialog';
+import SimSettingsDialog from './components/SimSettingsDialog';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -45,6 +46,7 @@ export default function App() {
       <DisplaySettingsDialog />
       <CurveManager />
       <DxfExportDialog />
+      <SimSettingsDialog />
     </div>
   );
 }

@@ -193,6 +193,8 @@ interface NetworkState {
   setCurveDialogOpen: (open: boolean) => void;
   dxfDialogOpen: boolean;
   setDxfDialogOpen: (open: boolean) => void;
+  simSettingsOpen: boolean;
+  setSimSettingsOpen: (open: boolean) => void;
   addCurve: (type: CurveType) => string;
   updateCurve: (id: string, patch: Partial<Curve>) => void;
   renameCurve: (id: string, newId: string) => void;
@@ -366,6 +368,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   displayDialogOpen: false,
   curveDialogOpen: false,
   dxfDialogOpen: false,
+  simSettingsOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
   definingClip: false,
@@ -807,6 +810,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   setCurveDialogOpen: (curveDialogOpen) => set({ curveDialogOpen }),
   setDxfDialogOpen: (dxfDialogOpen) => set({ dxfDialogOpen }),
+  setSimSettingsOpen: (simSettingsOpen) => set({ simSettingsOpen }),
 
   addCurve: (type) => {
     const s = get();

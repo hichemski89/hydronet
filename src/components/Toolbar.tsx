@@ -6,8 +6,6 @@ import { parseInp } from '../engine/inpParser';
 import { saveProjectFile, parseProjectFile, readFileAsText } from '../engine/projectIO';
 import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
-import { FlowUnit, HeadlossFormula } from '../types/network';
-import { FLOW_UNIT_LABELS } from '../utils/format';
 import ContextMenu, { MenuItem } from './ContextMenu';
 import {
   OpenIcon,
@@ -18,6 +16,7 @@ import {
   PdfIcon,
   ExportIcon,
   PlanIcon,
+  SettingsIcon,
 } from './Icons';
 
 function relTime(ts: number): string {
@@ -30,17 +29,9 @@ function relTime(ts: number): string {
   return new Date(ts).toLocaleDateString('fr-FR');
 }
 
-const FLOW_UNITS: FlowUnit[] = ['LPS', 'LPM', 'CMH', 'CMD', 'MLD', 'GPM', 'CFS'];
-const HEADLOSS: { id: HeadlossFormula; label: string }[] = [
-  { id: 'H-W', label: 'Hazen-Williams' },
-  { id: 'D-W', label: 'Darcy-Weisbach' },
-  { id: 'C-M', label: 'Chezy-Manning' },
-];
-
 export default function Toolbar() {
   const network = useNetworkStore((s) => s.network);
   const updateMeta = useNetworkStore((s) => s.updateMeta);
-  const updateOptions = useNetworkStore((s) => s.updateOptions);
   const setResults = useNetworkStore((s) => s.setResults);
   const setSimStatus = useNetworkStore((s) => s.setSimStatus);
   const simStatus = useNetworkStore((s) => s.simStatus);
@@ -54,6 +45,7 @@ export default function Toolbar() {
   const setBackdropPanelOpen = useNetworkStore((s) => s.setBackdropPanelOpen);
   const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
+  const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -240,6 +232,13 @@ export default function Toolbar() {
 
         {/* 4 · Simulation */}
         <button
+          className="btn"
+          onClick={() => setSimSettingsOpen(true)}
+          title="Paramètres de simulation : unités, pertes de charge, durée, hydraulique, conformité"
+        >
+          <SettingsIcon size={16} /> Paramètres
+        </button>
+        <button
           className="btn btn-primary"
           onClick={onRun}
           disabled={busy || simStatus === 'running'}
@@ -269,34 +268,16 @@ export default function Toolbar() {
 
       <div className="toolbar-spacer" />
 
-      <div className="toolbar-group toolbar-options">
-        <label>
-          Unités
-          <select
-            value={network.options.flowUnits}
-            onChange={(e) => updateOptions({ flowUnits: e.target.value as FlowUnit })}
-          >
-            {FLOW_UNITS.map((u) => (
-              <option key={u} value={u}>
-                {FLOW_UNIT_LABELS[u]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Pertes de charge
-          <select
-            value={network.options.headlossFormula}
-            onChange={(e) => updateOptions({ headlossFormula: e.target.value as HeadlossFormula })}
-          >
-            {HEADLOSS.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <button
+        className="toolbar-settings-chip"
+        onClick={() => setSimSettingsOpen(true)}
+        title="Modifier les paramètres de simulation"
+      >
+        <span>{network.options.flowUnits}</span>
+        <span className="chip-sep">·</span>
+        <span>{network.options.headlossFormula}</span>
+        <SettingsIcon size={14} />
+      </button>
 
       {fileMenu && (
         <ContextMenu
