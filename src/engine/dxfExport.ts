@@ -1,7 +1,7 @@
 import { Network, SimulationResults } from '../types/network';
 import { flowUnitLabel } from '../utils/format';
 import { roundedPolyline, effectiveBendRadius } from '../utils/pipeGeometry';
-import { minBendRadiusMeters } from '../data/pipeCatalog';
+import { minBendRadiusMeters, getMaterial } from '../data/pipeCatalog';
 
 function clock(sec: number): string {
   const h = Math.floor(sec / 3600);
@@ -101,6 +101,22 @@ export function buildDxf(
     g(40, num(h));
     g(1, s);
   };
+  // Texte centré et tourné (étiquette alignée le long d'une conduite).
+  const textRot = (layer: string, x: number, y: number, h: number, s: string, rotDeg: number) => {
+    g(0, 'TEXT');
+    g(8, layer);
+    g(10, num(x));
+    g(20, num(y));
+    g(30, 0);
+    g(40, num(h));
+    g(1, s);
+    g(50, num(rotDeg));
+    g(72, 1); // centré horizontalement
+    g(11, num(x));
+    g(21, num(y));
+    g(31, 0);
+  };
+
   const square = (layer: string, cx: number, cy: number, half: number) =>
     polyline(layer, [
       { x: cx - half, y: cy - half },
@@ -156,6 +172,7 @@ export function buildDxf(
     ['POMPES', 1],
     ['VANNES', 2],
     ['ECOULEMENT', 6],
+    ['ETIQ_CONDUITES', 4],
     ['ETIQUETTES', 7],
     ['TABLEAU', 7],
     ['LEGENDE', 7],
@@ -196,6 +213,24 @@ export function buildDxf(
             )
           : pts;
       polyline('CONDUITES', drawn, false);
+
+      // Étiquette : nom, matériau, diamètre, longueur — alignée le long de la conduite
+      const si = Math.floor((pts.length - 1) / 2);
+      const q0 = pts[si];
+      const q1 = pts[si + 1];
+      const angR = Math.atan2(q1.y - q0.y, q1.x - q0.x);
+      let angDeg = (angR * 180) / Math.PI;
+      if (angDeg > 90) angDeg -= 180;
+      else if (angDeg <= -90) angDeg += 180;
+      const off = txt * 1.0;
+      const lx = (q0.x + q1.x) / 2 - Math.sin(angR) * off;
+      const ly = (q0.y + q1.y) / 2 + Math.cos(angR) * off;
+      const parts = [lk.id];
+      const matName = lk.material ? getMaterial(lk.material)?.name.split(' ')[0] : null;
+      if (matName && lk.dn) parts.push(`${matName} DN${lk.dn}`);
+      else if (lk.diameter) parts.push(`D${lk.diameter.toFixed(0)}mm`);
+      parts.push(`L=${lk.length.toFixed(1)}m`);
+      textRot('ETIQ_CONDUITES', lx, ly, sym, parts.join('  '), angDeg);
     }
     else if (lk.type === 'pump') {
       polyline('POMPES', pts, false);
