@@ -78,8 +78,7 @@ export default function PropertiesPanel() {
   const selection = useNetworkStore((s) => s.selection);
   const updateNode = useNetworkStore((s) => s.updateNode);
   const updateLink = useNetworkStore((s) => s.updateLink);
-  const updateOptions = useNetworkStore((s) => s.updateOptions);
-  const updateCriteria = useNetworkStore((s) => s.updateCriteria);
+  const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
   const deleteSelection = useNetworkStore((s) => s.deleteSelection);
   const selNodes = useNetworkStore((s) => s.selNodes);
   const selLinks = useNetworkStore((s) => s.selLinks);
@@ -110,75 +109,21 @@ export default function PropertiesPanel() {
   }
 
   if (!selection) {
-    const o = network.options;
     return (
       <div className="props">
-        <h3 className="props-title">Paramètres de simulation</h3>
+        <h3 className="props-title">Propriétés</h3>
         <p className="hint">Sélectionnez un élément du réseau pour modifier ses propriétés.</p>
-        <Field
-          label="Durée"
-          unit="h"
-          step={1}
-          value={o.duration / 3600}
-          onChange={(v) => updateOptions({ duration: Math.max(0, v) * 3600 })}
-        />
-        <Field
-          label="Pas hydraulique"
-          unit="min"
-          step={5}
-          value={o.hydraulicStep / 60}
-          onChange={(v) => updateOptions({ hydraulicStep: Math.max(1, v) * 60 })}
-        />
-        <Field
-          label="Pas de report"
-          unit="min"
-          step={5}
-          value={o.reportStep / 60}
-          onChange={(v) => updateOptions({ reportStep: Math.max(1, v) * 60 })}
-        />
-        <Field
-          label="Précision"
-          step={0.0001}
-          value={o.accuracy}
-          onChange={(v) => updateOptions({ accuracy: v })}
-        />
-        <Field
-          label="Itérations max"
-          step={1}
-          value={o.trials}
-          onChange={(v) => updateOptions({ trials: Math.round(v) })}
-        />
-
-        <h3 className="props-title" style={{ marginTop: 18 }}>
-          Critères de conformité
-        </h3>
-        <p className="hint">Seuils utilisés pour évaluer les résultats et le rapport.</p>
-        <Field
-          label="Pression de service min"
-          unit={lenU}
-          value={network.criteria.minPressure}
-          onChange={(v) => updateCriteria({ minPressure: v })}
-        />
-        <Field
-          label="Pression max admissible"
-          unit={lenU}
-          value={network.criteria.maxPressure}
-          onChange={(v) => updateCriteria({ maxPressure: v })}
-        />
-        <Field
-          label="Vitesse max admissible"
-          unit={`${lenU}/s`}
-          step={0.1}
-          value={network.criteria.maxVelocity}
-          onChange={(v) => updateCriteria({ maxVelocity: v })}
-        />
-        <Field
-          label="Vitesse min (auto-curage)"
-          unit={`${lenU}/s`}
-          step={0.1}
-          value={network.criteria.minVelocity}
-          onChange={(v) => updateCriteria({ minVelocity: v })}
-        />
+        <button
+          className="btn btn-sm"
+          style={{ marginBottom: 4 }}
+          onClick={() => setSimSettingsOpen(true)}
+        >
+          ⚙ Paramètres de simulation…
+        </button>
+        <p className="hint" style={{ marginTop: 6 }}>
+          Unités, pertes de charge, durée, pas de temps, options hydrauliques et
+          critères de conformité sont regroupés dans cette fenêtre.
+        </p>
 
         <ControlsEditor />
       </div>
