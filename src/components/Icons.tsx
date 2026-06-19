@@ -174,6 +174,12 @@ export const SettingsIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const FilterIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 5h18l-7 8v6l-4 2v-8L3 5z" />
+  </Svg>
+);
+
 export const ZoomInIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="10.5" cy="10.5" r="6.5" />

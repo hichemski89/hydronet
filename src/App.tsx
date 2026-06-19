@@ -15,6 +15,7 @@ import CurveManager from './components/CurveManager';
 import PatternManager from './components/PatternManager';
 import DxfExportDialog from './components/DxfExportDialog';
 import SimSettingsDialog from './components/SimSettingsDialog';
+import SelectByFilterDialog from './components/SelectByFilterDialog';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -49,6 +50,7 @@ export default function App() {
       <PatternManager />
       <DxfExportDialog />
       <SimSettingsDialog />
+      <SelectByFilterDialog />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   ExportIcon,
   PlanIcon,
   SettingsIcon,
+  FilterIcon,
 } from './Icons';
 
 function relTime(ts: number): string {
@@ -47,6 +48,7 @@ export default function Toolbar() {
   const setPatternDialogOpen = useNetworkStore((s) => s.setPatternDialogOpen);
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
   const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
+  const setSelectDialogOpen = useNetworkStore((s) => s.setSelectDialogOpen);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -209,6 +211,13 @@ export default function Toolbar() {
           title="Magnétisme sur grille"
         >
           <GridIcon size={18} />
+        </button>
+        <button
+          className="btn"
+          onClick={() => setSelectDialogOpen(true)}
+          title="Sélectionner des éléments par filtre (vitesse, pression, diamètre…)"
+        >
+          <FilterIcon size={16} /> Sélection
         </button>
 
         <span className="toolbar-sep-v" />
