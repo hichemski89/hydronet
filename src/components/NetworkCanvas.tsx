@@ -714,7 +714,7 @@ export default function NetworkCanvas() {
     const isSel = (selection?.kind === 'link' && selection.id === linkId) || selLinks.includes(linkId);
 
     return (
-      <g key={linkId} className={isSel ? 'sel-blink' : undefined}>
+      <g key={linkId}>
         {/* Zone de clic élargie (invisible) */}
         <path d={path} stroke="transparent" strokeWidth={14} fill="none" data-link={linkId} style={{ cursor: 'pointer' }} />
         <path
@@ -726,6 +726,19 @@ export default function NetworkCanvas() {
           strokeLinejoin="round"
           strokeLinecap="round"
         />
+        {/* Sélection AutoCAD : fourmis en marche */}
+        {isSel && (
+          <path
+            className="sel-ants"
+            d={path}
+            stroke="#fff"
+            strokeWidth={isSel ? width + 2 : width}
+            fill="none"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            pointerEvents="none"
+          />
+        )}
         {/* Flèche de sens d'écoulement */}
         {results && showOverlay && display.showFlowArrows && flowVal != null && Math.abs(flowVal) > 1e-6 && (
           <FlowArrow pts={pts} reversed={flowVal < 0} size={display.arrowSize} />
@@ -815,7 +828,6 @@ export default function NetworkCanvas() {
       <g
         key={node.id}
         data-node={node.id}
-        className={isSel ? 'sel-blink' : undefined}
         style={{ cursor: tool === 'select' ? 'move' : 'pointer' }}
       >
         {node.type === 'junction' && (
@@ -855,6 +867,19 @@ export default function NetworkCanvas() {
               data-node={node.id}
             />
           </g>
+        )}
+        {/* Sélection AutoCAD : anneau pointillé (fourmis en marche) */}
+        {isSel && (
+          <circle
+            className="sel-ants"
+            cx={p.x}
+            cy={p.y}
+            r={NODE_R + 6}
+            fill="none"
+            stroke="#1d4ed8"
+            strokeWidth={1.6}
+            pointerEvents="none"
+          />
         )}
         {display.showNodeLabels && (
           <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={display.labelSize} fill="#374151" style={{ userSelect: 'none' }}>
