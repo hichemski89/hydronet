@@ -56,6 +56,7 @@ export default function Toolbar() {
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState<{ kind: 'file' | 'lib' | 'export'; x: number; y: number } | null>(null);
+  const [saveAsValue, setSaveAsValue] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const onOpenFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,14 +81,16 @@ export default function Toolbar() {
     addRecent(network.meta.name || 'Projet', network);
   };
 
-  const onSaveAs = () => {
-    const name = window.prompt('Enregistrer sous — nom du projet :', network.meta.name || 'reseau');
-    if (name == null) return;
-    const trimmed = name.trim() || 'reseau';
+  // window.prompt n'existe pas dans Electron -> on ouvre une fenêtre de saisie.
+  const onSaveAs = () => setSaveAsValue(network.meta.name || 'reseau');
+
+  const confirmSaveAs = () => {
+    const trimmed = (saveAsValue ?? '').trim() || 'reseau';
     updateMeta({ name: trimmed });
     const net = { ...network, meta: { ...network.meta, name: trimmed } };
     saveProjectFile(net);
     addRecent(trimmed, net);
+    setSaveAsValue(null);
   };
 
   const openMenu = (kind: 'file' | 'lib' | 'export') => (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -179,7 +182,13 @@ export default function Toolbar() {
   return (
     <header className="toolbar">
       <div className="toolbar-brand">
-        <span className="logo-mark">≈</span>
+        <img
+          className="logo-img"
+          src={`${import.meta.env.BASE_URL}favicon.svg`}
+          alt="HydroNet"
+          width={34}
+          height={34}
+        />
         <span className="logo-text">HydroNet</span>
       </div>
 
@@ -294,6 +303,39 @@ export default function Toolbar() {
           }
           onClose={() => setMenu(null)}
         />
+      )}
+
+      {saveAsValue !== null && (
+        <div className="modal-overlay" onClick={() => setSaveAsValue(null)}>
+          <div className="modal" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Enregistrer sous</h3>
+              <button className="modal-close" onClick={() => setSaveAsValue(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <label className="field">
+                <span className="field-label">Nom du projet</span>
+                <input
+                  type="text"
+                  autoFocus
+                  value={saveAsValue}
+                  onChange={(e) => setSaveAsValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmSaveAs();
+                    if (e.key === 'Escape') setSaveAsValue(null);
+                  }}
+                />
+              </label>
+              <p className="hint" style={{ marginBottom: 0 }}>
+                Le projet sera enregistré au format <strong>.hydronet</strong>.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setSaveAsValue(null)}>Annuler</button>
+              <button className="btn btn-primary" onClick={confirmSaveAs}>Enregistrer</button>
+            </div>
+          </div>
+        </div>
       )}
     </header>
   );

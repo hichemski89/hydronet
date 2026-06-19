@@ -65,6 +65,7 @@ async function createWindow() {
     minHeight: 680,
     backgroundColor: '#f1f5f9',
     autoHideMenuBar: true,
+    title: 'HydroNet',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     webPreferences: {
       contextIsolation: true,

@@ -54,15 +54,12 @@ body {
   gap: 8px;
   font-weight: 700;
 }
-.logo-mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--brand), #0891b2);
-  color: #fff;
-  font-size: 18px;
+.logo-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: block;
+  flex: 0 0 auto;
 }
 .logo-text {
   font-size: 18px;
