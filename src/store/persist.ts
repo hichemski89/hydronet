@@ -77,3 +77,22 @@ export function savePersistedCad(data: unknown): void {
     /* fond de plan trop volumineux pour le stockage : ignoré */
   }
 }
+
+const KEY_RECENTS = 'hydronet:recents:v1';
+
+export function loadRecents<T>(): T[] {
+  try {
+    const raw = localStorage.getItem(KEY_RECENTS);
+    return raw ? (JSON.parse(raw) as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveRecents(data: unknown): void {
+  try {
+    localStorage.setItem(KEY_RECENTS, JSON.stringify(data));
+  } catch {
+    /* ignoré */
+  }
+}

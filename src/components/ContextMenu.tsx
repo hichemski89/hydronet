@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 
 export interface MenuItem {
-  type?: 'item' | 'separator';
+  type?: 'item' | 'separator' | 'header';
   label?: string;
+  sub?: string;
   icon?: string;
   danger?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }
 
@@ -53,17 +55,24 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
       {items.map((it, i) =>
         it.type === 'separator' ? (
           <div key={i} className="context-sep" />
+        ) : it.type === 'header' ? (
+          <div key={i} className="context-header">{it.label}</div>
         ) : (
           <button
             key={i}
             className={`context-item ${it.danger ? 'danger' : ''}`}
+            disabled={it.disabled}
             onClick={() => {
+              if (it.disabled) return;
               it.onClick?.();
               onClose();
             }}
           >
             <span className="context-icon">{it.icon}</span>
-            {it.label}
+            <span className="context-label">
+              {it.label}
+              {it.sub && <span className="context-sub">{it.sub}</span>}
+            </span>
           </button>
         ),
       )}

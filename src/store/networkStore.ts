@@ -27,7 +27,16 @@ import {
   savePersistedDisplay,
   loadPersistedCad,
   savePersistedCad,
+  loadRecents,
+  saveRecents,
 } from './persist';
+
+export interface RecentProject {
+  id: string;
+  name: string;
+  savedAt: number;
+  network: Network;
+}
 
 export type Tool =
   | 'select'
@@ -218,6 +227,9 @@ interface NetworkState {
   recomputeLengths: () => void;
   loadNetwork: (network: Network) => void;
   newNetwork: () => void;
+  recents: RecentProject[];
+  addRecent: (name: string, network: Network) => void;
+  loadRecentProject: (id: string) => void;
 }
 
 function emptyNetwork(): Network {
@@ -956,6 +968,24 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       future: [],
       fitRequest: s.fitRequest + 1,
     })),
+
+  recents: loadRecents<RecentProject>(),
+  addRecent: (name, network) =>
+    set((s) => {
+      const entry: RecentProject = {
+        id: nanoid(8),
+        name: name || 'Projet',
+        savedAt: Date.now(),
+        network: JSON.parse(JSON.stringify(network)),
+      };
+      const recents = [entry, ...s.recents.filter((r) => r.name !== entry.name)].slice(0, 8);
+      saveRecents(recents);
+      return { recents };
+    }),
+  loadRecentProject: (id) => {
+    const r = get().recents.find((x) => x.id === id);
+    if (r) get().loadNetwork(r.network);
+  },
 }));
 
 function uniqueNodeId(network: Network, base: string): string {

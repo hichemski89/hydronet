@@ -8,10 +8,9 @@ import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
 import { FlowUnit, HeadlossFormula } from '../types/network';
 import { FLOW_UNIT_LABELS } from '../utils/format';
+import ContextMenu, { MenuItem } from './ContextMenu';
 import {
-  NewIcon,
   OpenIcon,
-  SaveIcon,
   UndoIcon,
   RedoIcon,
   GridIcon,
@@ -20,6 +19,16 @@ import {
   ExportIcon,
   PlanIcon,
 } from './Icons';
+
+function relTime(ts: number): string {
+  const d = Math.max(0, Date.now() - ts);
+  const min = Math.round(d / 60000);
+  if (min < 1) return "à l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  return new Date(ts).toLocaleDateString('fr-FR');
+}
 
 const FLOW_UNITS: FlowUnit[] = ['LPS', 'LPM', 'CMH', 'CMD', 'MLD', 'GPM', 'CFS'];
 const HEADLOSS: { id: HeadlossFormula; label: string }[] = [
@@ -39,6 +48,9 @@ export default function Toolbar() {
   const timeIndex = useNetworkStore((s) => s.currentTimeIndex);
   const newNetwork = useNetworkStore((s) => s.newNetwork);
   const loadNetwork = useNetworkStore((s) => s.loadNetwork);
+  const recents = useNetworkStore((s) => s.recents);
+  const addRecent = useNetworkStore((s) => s.addRecent);
+  const loadRecentProject = useNetworkStore((s) => s.loadRecentProject);
   const setBackdropPanelOpen = useNetworkStore((s) => s.setBackdropPanelOpen);
   const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
@@ -49,6 +61,7 @@ export default function Toolbar() {
   const snapToGrid = useNetworkStore((s) => s.snapToGrid);
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const [busy, setBusy] = useState(false);
+  const [fileMenu, setFileMenu] = useState<{ x: number; y: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const onOpenFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,10 +75,49 @@ export default function Toolbar() {
         ? parseInp(text, file.name.replace(/\.inp$/i, ''))
         : parseProjectFile(text);
       loadNetwork(net);
+      addRecent(net.meta.name || file.name.replace(/\.[^.]+$/, ''), net);
     } catch (err) {
       alert('Impossible d’ouvrir le fichier : ' + (err instanceof Error ? err.message : String(err)));
     }
   };
+
+  const onSave = () => {
+    saveProjectFile(network);
+    addRecent(network.meta.name || 'Projet', network);
+  };
+
+  const onSaveAs = () => {
+    const name = window.prompt('Enregistrer sous — nom du projet :', network.meta.name || 'reseau');
+    if (name == null) return;
+    const trimmed = name.trim() || 'reseau';
+    updateMeta({ name: trimmed });
+    const net = { ...network, meta: { ...network.meta, name: trimmed } };
+    saveProjectFile(net);
+    addRecent(trimmed, net);
+  };
+
+  const openFileMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setFileMenu({ x: r.left, y: r.bottom + 4 });
+  };
+
+  const fileMenuItems: MenuItem[] = [
+    { label: 'Nouveau', icon: '📄', onClick: newNetwork },
+    { label: 'Ouvrir…', icon: '📂', onClick: () => fileInput.current?.click() },
+    { type: 'separator' },
+    { label: 'Enregistrer', icon: '💾', onClick: onSave },
+    { label: 'Enregistrer sous…', icon: '🏷️', onClick: onSaveAs },
+    { type: 'separator' },
+    { type: 'header', label: 'Fichiers récents' },
+    ...(recents.length
+      ? recents.map((r): MenuItem => ({
+          label: r.name,
+          sub: relTime(r.savedAt),
+          icon: '🕘',
+          onClick: () => loadRecentProject(r.id),
+        }))
+      : [{ label: 'Aucun fichier récent', disabled: true } as MenuItem]),
+  ];
 
   const onRun = async () => {
     const errors = validateNetwork(network);
@@ -133,22 +185,12 @@ export default function Toolbar() {
       />
 
       <div className="toolbar-group">
-        <button className="btn" onClick={newNetwork} title="Nouveau réseau vierge">
-          <NewIcon size={16} /> Nouveau
-        </button>
         <button
-          className="btn"
-          onClick={() => fileInput.current?.click()}
-          title="Ouvrir un projet .hydronet ou importer un fichier EPANET .inp"
+          className={`btn btn-menu ${fileMenu ? 'btn-menu-open' : ''}`}
+          onClick={openFileMenu}
+          title="Nouveau, Ouvrir, Enregistrer, projets récents…"
         >
-          <OpenIcon size={16} /> Ouvrir
-        </button>
-        <button
-          className="btn"
-          onClick={() => saveProjectFile(network)}
-          title="Enregistrer le projet (.hydronet)"
-        >
-          <SaveIcon size={16} /> Enregistrer
+          <OpenIcon size={16} /> Fichier <span className="caret">▾</span>
         </button>
         <input
           ref={fileInput}
@@ -240,6 +282,15 @@ export default function Toolbar() {
           </select>
         </label>
       </div>
+
+      {fileMenu && (
+        <ContextMenu
+          x={fileMenu.x}
+          y={fileMenu.y}
+          items={fileMenuItems}
+          onClose={() => setFileMenu(null)}
+        />
+      )}
     </header>
   );
 }
