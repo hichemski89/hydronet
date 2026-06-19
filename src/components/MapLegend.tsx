@@ -8,8 +8,8 @@ import {
   NODE_METRICS,
   LINK_METRICS,
 } from '../utils/colorScale';
-import { nodeDomain, linkDomain } from '../utils/resultsAccess';
-import { STATUS_COLOR } from '../utils/compliance';
+import { nodeDomain, linkDomain, nodeValue, linkValue } from '../utils/resultsAccess';
+import { STATUS_COLOR, pressureStatus, velocityStatus } from '../utils/compliance';
 import { flowUnitLabel } from '../utils/format';
 
 const GRADIENT_STEPS = 24;
@@ -25,11 +25,28 @@ export default function MapLegend() {
   const setLinkMetric = useNetworkStore((s) => s.setLinkMetric);
   const colorMode = useNetworkStore((s) => s.colorMode);
   const setColorMode = useNetworkStore((s) => s.setColorMode);
-  const criteria = useNetworkStore((s) => s.network.criteria);
+  const network = useNetworkStore((s) => s.network);
+  const criteria = network.criteria;
   const display = useNetworkStore((s) => s.display);
   const updateDisplay = useNetworkStore((s) => s.updateDisplay);
 
   if (!results) return null;
+
+  // Comptes de conformité au pas de temps courant
+  const nCount = { low: 0, ok: 0, high: 0 };
+  const lCount = { low: 0, ok: 0, high: 0 };
+  if (colorMode === 'compliance') {
+    for (const n of Object.values(network.nodes)) {
+      if (n.type !== 'junction') continue;
+      const s = pressureStatus(nodeValue(results, n.id, 'pressure', timeIndex), criteria);
+      if (s === 'low' || s === 'ok' || s === 'high') nCount[s]++;
+    }
+    for (const l of Object.values(network.links)) {
+      if (l.type !== 'pipe') continue;
+      const s = velocityStatus(linkValue(results, l.id, 'velocity', timeIndex), criteria);
+      if (s === 'low' || s === 'ok' || s === 'high') lCount[s]++;
+    }
+  }
 
   const flowU = flowUnitLabel(results.flowUnits);
   const nDomain = nodeDomain(results, nodeMetric, timeIndex);
@@ -103,14 +120,42 @@ export default function MapLegend() {
         </>
       ) : (
         <div className="legend-block">
+          <div className="legend-conf-title">Nœuds — pression ({presU})</div>
           <div className="legend-status">
-            <span><i style={{ background: STATUS_COLOR.ok }} /> Conforme</span>
-            <span><i style={{ background: STATUS_COLOR.low }} /> Insuffisant</span>
-            <span><i style={{ background: STATUS_COLOR.high }} /> Excessif</span>
+            <span>
+              <i style={{ background: STATUS_COLOR.low }} /> Insuffisante &lt; {criteria.minPressure}
+              <b>{nCount.low}</b>
+            </span>
+            <span>
+              <i style={{ background: STATUS_COLOR.ok }} /> Conforme {criteria.minPressure}–
+              {criteria.maxPressure}
+              <b>{nCount.ok}</b>
+            </span>
+            <span>
+              <i style={{ background: STATUS_COLOR.high }} /> Excessive &gt; {criteria.maxPressure}
+              <b>{nCount.high}</b>
+            </span>
+          </div>
+
+          <div className="legend-conf-title" style={{ marginTop: 10 }}>
+            Conduites — vitesse ({results.lengthUnit}/s)
+          </div>
+          <div className="legend-status">
+            <span>
+              <i style={{ background: STATUS_COLOR.low }} /> Trop faible &lt; {criteria.minVelocity}
+              <b>{lCount.low}</b>
+            </span>
+            <span>
+              <i style={{ background: STATUS_COLOR.ok }} /> Correcte
+              <b>{lCount.ok}</b>
+            </span>
+            <span>
+              <i style={{ background: STATUS_COLOR.high }} /> Trop élevée &gt; {criteria.maxVelocity}
+              <b>{lCount.high}</b>
+            </span>
           </div>
           <div className="legend-criteria">
-            Pression : {criteria.minPressure}–{criteria.maxPressure} {presU} · Vitesse max :{' '}
-            {criteria.maxVelocity} {results.lengthUnit}/s
+            Seuils modifiables dans <strong>Paramètres ▸ Conformité</strong>.
           </div>
         </div>
       )}

@@ -3,7 +3,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { runSimulation, validateNetwork } from '../engine/epanetRunner';
 import { buildInp } from '../engine/inpBuilder';
 import { parseInp } from '../engine/inpParser';
-import { saveProjectFile, parseProjectFile, readFileAsText } from '../engine/projectIO';
+import { saveProjectFile, parseProjectFile, readFileAsText, clearSaveTarget } from '../engine/projectIO';
 import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
 import ContextMenu, { MenuItem } from './ContextMenu';
@@ -56,7 +56,6 @@ export default function Toolbar() {
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState<{ kind: 'file' | 'lib' | 'export'; x: number; y: number } | null>(null);
-  const [saveAsValue, setSaveAsValue] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const onOpenFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,6 +68,7 @@ export default function Toolbar() {
       const net = lower.endsWith('.inp')
         ? parseInp(text, file.name.replace(/\.inp$/i, ''))
         : parseProjectFile(text);
+      clearSaveTarget(); // nouveau projet ouvert -> nouvelle cible d'enregistrement
       loadNetwork(net);
       addRecent(net.meta.name || file.name.replace(/\.[^.]+$/, ''), net);
     } catch (err) {
@@ -76,21 +76,17 @@ export default function Toolbar() {
     }
   };
 
-  const onSave = async () => {
-    const ok = await saveProjectFile(network);
-    if (ok) addRecent(network.meta.name || 'Projet', network);
+  // Enregistre, met à jour le nom du projet avec le fichier réellement choisi.
+  const doSave = async (saveAs: boolean) => {
+    const name = await saveProjectFile(network, { saveAs });
+    if (!name) return; // annulé
+    updateMeta({ name });
+    addRecent(name, { ...network, meta: { ...network.meta, name } });
   };
 
-  // window.prompt n'existe pas dans Electron -> on ouvre une fenêtre de saisie.
-  const onSaveAs = () => setSaveAsValue(network.meta.name || 'reseau');
-
-  const confirmSaveAs = async () => {
-    const trimmed = (saveAsValue ?? '').trim() || 'reseau';
-    updateMeta({ name: trimmed });
-    const net = { ...network, meta: { ...network.meta, name: trimmed } };
-    setSaveAsValue(null);
-    const ok = await saveProjectFile(net);
-    if (ok) addRecent(trimmed, net);
+  const onNew = () => {
+    clearSaveTarget();
+    newNetwork();
   };
 
   const openMenu = (kind: 'file' | 'lib' | 'export') => (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -99,11 +95,11 @@ export default function Toolbar() {
   };
 
   const fileMenuItems: MenuItem[] = [
-    { label: 'Nouveau', icon: '📄', onClick: newNetwork },
+    { label: 'Nouveau', icon: '📄', onClick: onNew },
     { label: 'Ouvrir…', icon: '📂', onClick: () => fileInput.current?.click() },
     { type: 'separator' },
-    { label: 'Enregistrer', icon: '💾', onClick: onSave },
-    { label: 'Enregistrer sous…', icon: '🏷️', onClick: onSaveAs },
+    { label: 'Enregistrer', icon: '💾', onClick: () => doSave(false) },
+    { label: 'Enregistrer sous…', icon: '🏷️', onClick: () => doSave(true) },
     { type: 'separator' },
     { type: 'header', label: 'Fichiers récents' },
     ...(recents.length
@@ -305,38 +301,6 @@ export default function Toolbar() {
         />
       )}
 
-      {saveAsValue !== null && (
-        <div className="modal-overlay" onClick={() => setSaveAsValue(null)}>
-          <div className="modal" style={{ width: 380 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Enregistrer sous</h3>
-              <button className="modal-close" onClick={() => setSaveAsValue(null)}>×</button>
-            </div>
-            <div className="modal-body">
-              <label className="field">
-                <span className="field-label">Nom du projet</span>
-                <input
-                  type="text"
-                  autoFocus
-                  value={saveAsValue}
-                  onChange={(e) => setSaveAsValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') confirmSaveAs();
-                    if (e.key === 'Escape') setSaveAsValue(null);
-                  }}
-                />
-              </label>
-              <p className="hint" style={{ marginBottom: 0 }}>
-                Le projet sera enregistré au format <strong>.hydronet</strong>.
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn" onClick={() => setSaveAsValue(null)}>Annuler</button>
-              <button className="btn btn-primary" onClick={confirmSaveAs}>Enregistrer</button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
