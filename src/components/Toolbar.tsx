@@ -13,7 +13,6 @@ import {
   RedoIcon,
   GridIcon,
   PlayIcon,
-  PdfIcon,
   ExportIcon,
   PlanIcon,
   SettingsIcon,
@@ -56,7 +55,7 @@ export default function Toolbar() {
   const snapToGrid = useNetworkStore((s) => s.snapToGrid);
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const [busy, setBusy] = useState(false);
-  const [fileMenu, setFileMenu] = useState<{ x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ kind: 'file' | 'lib' | 'export'; x: number; y: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const onOpenFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,9 +90,9 @@ export default function Toolbar() {
     addRecent(trimmed, net);
   };
 
-  const openFileMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const openMenu = (kind: 'file' | 'lib' | 'export') => (e: React.MouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    setFileMenu({ x: r.left, y: r.bottom + 4 });
+    setMenu((m) => (m?.kind === kind ? null : { kind, x: r.left, y: r.bottom + 4 }));
   };
 
   const fileMenuItems: MenuItem[] = [
@@ -112,6 +111,11 @@ export default function Toolbar() {
           onClick: () => loadRecentProject(r.id),
         }))
       : [{ label: 'Aucun fichier récent', disabled: true } as MenuItem]),
+  ];
+
+  const libMenuItems: MenuItem[] = [
+    { label: 'Courbes', sub: 'caractéristique, rendement, volume…', icon: '📈', onClick: () => setCurveDialogOpen(true) },
+    { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse)', icon: '⏱', onClick: () => setPatternDialogOpen(true) },
   ];
 
   const onRun = async () => {
@@ -165,6 +169,13 @@ export default function Toolbar() {
     URL.revokeObjectURL(url);
   };
 
+  const exportMenuItems: MenuItem[] = [
+    { label: 'Rapport PDF', sub: results ? undefined : 'lancez d’abord une simulation', icon: '📄', disabled: busy || !results, onClick: onExportPdf },
+    { type: 'separator' },
+    { label: 'EPANET (.inp)', icon: '📤', onClick: onExportInp },
+    { label: 'AutoCAD (.dxf)', icon: '📐', onClick: () => setDxfDialogOpen(true) },
+  ];
+
   return (
     <header className="toolbar">
       <div className="toolbar-brand">
@@ -182,8 +193,8 @@ export default function Toolbar() {
       <div className="toolbar-group">
         {/* 1 · Fichier */}
         <button
-          className={`btn btn-menu ${fileMenu ? 'btn-menu-open' : ''}`}
-          onClick={openFileMenu}
+          className={`btn btn-menu ${menu?.kind === 'file' ? 'btn-menu-open' : ''}`}
+          onClick={openMenu('file')}
           title="Nouveau, Ouvrir, Enregistrer, projets récents…"
         >
           <OpenIcon size={16} /> Fichier <span className="caret">▾</span>
@@ -231,18 +242,11 @@ export default function Toolbar() {
           <PlanIcon size={16} /> Fond de plan
         </button>
         <button
-          className="btn"
-          onClick={() => setCurveDialogOpen(true)}
-          title="Bibliothèque de courbes (caractéristique, rendement, volume…)"
+          className={`btn btn-menu ${menu?.kind === 'lib' ? 'btn-menu-open' : ''}`}
+          onClick={openMenu('lib')}
+          title="Bibliothèques : courbes et courbes de modulation"
         >
-          📈 Courbes
-        </button>
-        <button
-          className="btn"
-          onClick={() => setPatternDialogOpen(true)}
-          title="Courbes de modulation (coefficients horaires de demande / vitesse)"
-        >
-          ⏱ Modulations
+          📚 Bibliothèques <span className="caret">▾</span>
         </button>
 
         <span className="toolbar-sep-v" />
@@ -272,14 +276,12 @@ export default function Toolbar() {
         <span className="toolbar-sep-v" />
 
         {/* 5 · Export */}
-        <button className="btn" onClick={onExportPdf} disabled={busy || !results} title="Générer le rapport PDF">
-          <PdfIcon size={16} /> Rapport PDF
-        </button>
-        <button className="btn" onClick={onExportInp} title="Exporter au format EPANET .inp">
-          <ExportIcon size={16} /> .inp
-        </button>
-        <button className="btn" onClick={() => setDxfDialogOpen(true)} title="Exporter le plan au format DXF (AutoCAD)">
-          <ExportIcon size={16} /> .dxf
+        <button
+          className={`btn btn-menu ${menu?.kind === 'export' ? 'btn-menu-open' : ''}`}
+          onClick={openMenu('export')}
+          title="Exporter : rapport PDF, EPANET .inp, AutoCAD .dxf"
+        >
+          <ExportIcon size={16} /> Exporter <span className="caret">▾</span>
         </button>
       </div>
 
@@ -296,12 +298,14 @@ export default function Toolbar() {
         <SettingsIcon size={14} />
       </button>
 
-      {fileMenu && (
+      {menu && (
         <ContextMenu
-          x={fileMenu.x}
-          y={fileMenu.y}
-          items={fileMenuItems}
-          onClose={() => setFileMenu(null)}
+          x={menu.x}
+          y={menu.y}
+          items={
+            menu.kind === 'file' ? fileMenuItems : menu.kind === 'lib' ? libMenuItems : exportMenuItems
+          }
+          onClose={() => setMenu(null)}
         />
       )}
     </header>
