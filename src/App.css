@@ -1242,16 +1242,6 @@ body {
   user-select: none;
 }
 
-/* Sélection façon AutoCAD : contour pointillé qui défile (fourmis en marche) */
-@keyframes sel-ants {
-  to {
-    stroke-dashoffset: -18;
-  }
-}
-.sel-ants {
-  stroke-dasharray: 5 4;
-  animation: sel-ants 0.5s linear infinite;
-}
 
 /* ---------- Sidebar ---------- */
 .sidebar {
