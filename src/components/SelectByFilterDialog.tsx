@@ -2,19 +2,38 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNetworkStore } from '../store/networkStore';
 import { isUSUnits, Network, SimulationResults } from '../types/network';
 
-type Family = 'nodes' | 'junctions' | 'pipes' | 'pumps' | 'valves' | 'links';
+type Family =
+  | 'nodes'
+  | 'junctions'
+  | 'reservoirs'
+  | 'tanks'
+  | 'pipes'
+  | 'pumps'
+  | 'valves'
+  | 'links';
 type Agg = 'current' | 'max' | 'min' | 'avg';
 type Op = 'lt' | 'le' | 'eq' | 'ge' | 'gt' | 'between' | 'contains';
 type Combine = 'new' | 'add' | 'remove';
 
 const FAMILIES: { id: Family; label: string; kind: 'node' | 'link' }[] = [
   { id: 'nodes', label: 'Tous les nœuds', kind: 'node' },
-  { id: 'junctions', label: 'Jonctions', kind: 'node' },
+  { id: 'junctions', label: 'Nœuds de demande', kind: 'node' },
+  { id: 'reservoirs', label: 'Bâches à eau / Sources', kind: 'node' },
+  { id: 'tanks', label: 'Réservoirs (stockage)', kind: 'node' },
   { id: 'pipes', label: 'Conduites', kind: 'link' },
   { id: 'pumps', label: 'Pompes', kind: 'link' },
   { id: 'valves', label: 'Vannes', kind: 'link' },
   { id: 'links', label: 'Tous les liens', kind: 'link' },
 ];
+
+/** Le nœud appartient-il à la famille choisie ? */
+function nodeInFamily(type: 'junction' | 'reservoir' | 'tank', family: Family): boolean {
+  if (family === 'nodes') return true;
+  if (family === 'junctions') return type === 'junction';
+  if (family === 'reservoirs') return type === 'reservoir';
+  if (family === 'tanks') return type === 'tank';
+  return false;
+}
 
 interface PropDef {
   id: string;
@@ -65,6 +84,8 @@ function propsFor(f: Family): PropDef[] {
   switch (f) {
     case 'nodes':
     case 'junctions':
+    case 'reservoirs':
+    case 'tanks':
       return NODE_PROPS;
     case 'pipes':
       return PIPE_PROPS;
@@ -105,7 +126,7 @@ function allOfFamily(network: Network, family: Family): { ids: string[]; kind: '
   const fam = FAMILIES.find((f) => f.id === family)!;
   if (fam.kind === 'node') {
     const ids = Object.values(network.nodes)
-      .filter((n) => family !== 'junctions' || n.type === 'junction')
+      .filter((n) => nodeInFamily(n.type, family))
       .map((n) => n.id);
     return { ids, kind: 'node' };
   }
@@ -160,7 +181,7 @@ function evaluate(
 
   if (fam.kind === 'node') {
     for (const n of Object.values(network.nodes)) {
-      if (family === 'junctions' && n.type !== 'junction') continue;
+      if (!nodeInFamily(n.type, family)) continue;
       let ok = false;
       if (prop.source === 'node-res') {
         const series = results?.nodes[n.id]?.[prop.resKey as 'pressure'];
