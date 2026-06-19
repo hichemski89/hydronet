@@ -22,7 +22,6 @@ const FAMILIES: { id: Family; label: string; kind: 'node' | 'link' }[] = [
   { id: 'pipes', label: 'Conduites', kind: 'link' },
   { id: 'pumps', label: 'Pompes', kind: 'link' },
   { id: 'valves', label: 'Vannes', kind: 'link' },
-  { id: 'links', label: 'Tous les liens', kind: 'link' },
 ];
 
 /** Le nœud appartient-il à la famille choisie ? */
