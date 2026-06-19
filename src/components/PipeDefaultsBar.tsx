@@ -29,10 +29,11 @@ export default function PipeDefaultsBar() {
 
   if (tool !== 'pipe') return null;
 
-  // Bascule le type de sommet et applique au dernier sommet déjà posé (retour immédiat).
-  const onElbow = (on: boolean) => {
-    setDrawElbow(on);
-    if (pendingLink && pendingLink.vertices.length > 0) setPendingLastFitting(on);
+  // Coché = courbure (rayon) ; décoché = sans rayon (coin vif).
+  // Applique aussi au dernier sommet déjà posé (retour immédiat).
+  const onCurve = (curve: boolean) => {
+    setDrawElbow(!curve);
+    if (pendingLink && pendingLink.vertices.length > 0) setPendingLastFitting(!curve);
   };
 
   const mat = getMaterial(dp.material);
@@ -96,18 +97,14 @@ export default function PipeDefaultsBar() {
       <div className="pdb-divider" />
 
       <div className="pdb-section">
-        <label className="pdb-check" title="Sommet anguleux (coude) au lieu d'une courbure arrondie">
+        <label className="pdb-check" title="Arrondir les angles avec un rayon de courbure (décoché = coins vifs, sans rayon)">
           <input
             type="checkbox"
-            checked={angleSnap || drawElbow}
-            disabled={angleSnap}
-            onChange={(e) => onElbow(e.target.checked)}
+            checked={!drawElbow}
+            onChange={(e) => onCurve(e.target.checked)}
           />
-          <span>Coude (coin vif)</span>
+          <span>Courbure (rayon)</span>
         </label>
-        {angleSnap && (
-          <span className="pdb-note">forcé par les angles normalisés</span>
-        )}
       </div>
 
       <div className="pdb-divider" />

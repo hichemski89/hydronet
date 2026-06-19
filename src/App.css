@@ -262,16 +262,29 @@ body {
   max-height: calc(100% - 28px);
   overflow-y: auto;
 }
-.legend-toggle {
-  margin-bottom: 8px;
-  font-weight: 600;
+.legend-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
-.map-legend.collapsed .legend-toggle {
-  margin-bottom: 0;
+.map-legend:not(.collapsed) .legend-header {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.legend-main-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+.legend-toggle {
+  margin-bottom: 8px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .legend-toggle label {
   display: flex;

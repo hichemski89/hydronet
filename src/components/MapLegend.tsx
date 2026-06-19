@@ -62,10 +62,8 @@ export default function MapLegend() {
 
   return (
     <div className={`map-legend ${collapsed ? 'collapsed' : ''}`}>
-      <div className="legend-row legend-toggle">
-        <label>
-          <input type="checkbox" checked={showOverlay} onChange={toggleOverlay} /> Colorer les résultats
-        </label>
+      <div className="legend-header">
+        <span className="legend-main-title">Légende</span>
         <button
           className="legend-collapse"
           onClick={() => setCollapsed((c) => !c)}
@@ -77,6 +75,12 @@ export default function MapLegend() {
 
       {collapsed ? null : (
       <>
+      <div className="legend-row legend-toggle">
+        <label>
+          <input type="checkbox" checked={showOverlay} onChange={toggleOverlay} /> Colorer les résultats
+        </label>
+      </div>
+
       <div className="legend-modes">
         <button
           className={`legend-mode ${colorMode === 'metric' ? 'active' : ''}`}

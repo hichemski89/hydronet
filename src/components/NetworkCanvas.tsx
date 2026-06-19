@@ -70,7 +70,6 @@ export default function NetworkCanvas() {
   const completeLink = useNetworkStore((s) => s.completeLink);
   const cancelPendingLink = useNetworkStore((s) => s.cancelPendingLink);
   const pendingLink = useNetworkStore((s) => s.pendingLink);
-  const setPendingLastFitting = useNetworkStore((s) => s.setPendingLastFitting);
   const removeLastPendingVertex = useNetworkStore((s) => s.removeLastPendingVertex);
   const deleteSelection = useNetworkStore((s) => s.deleteSelection);
   const commit = useNetworkStore((s) => s.commit);
@@ -436,8 +435,6 @@ export default function NetworkCanvas() {
       } else if (pendingLink) {
         const v = snapPendingCursor(mp);
         addLinkVertex(v.x, v.y);
-        // Sous angles normalisés, le sommet posé est un coude (coin vif, pas de rayon)
-        if (angleSnap) setPendingLastFitting(true);
       }
       return;
     }

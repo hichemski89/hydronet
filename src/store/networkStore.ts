@@ -391,7 +391,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   defaultPipe: { material: 'pehd-pe100', dn: 110, pn: 16 },
   angleSnap: false,
   snapAngles: [22.5, 45, 90],
-  drawElbow: false,
+  drawElbow: true, // par défaut : tracé sans rayon (coins vifs)
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
   curveDialogOpen: false,
