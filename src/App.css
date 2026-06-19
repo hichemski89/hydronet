@@ -73,7 +73,8 @@ body {
   font-weight: 600;
   padding: 6px 8px;
   border-radius: 6px;
-  max-width: 220px;
+  flex: 0 0 200px;
+  width: 200px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
