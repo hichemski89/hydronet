@@ -244,9 +244,9 @@ export default function Toolbar() {
         <button
           className={`btn btn-menu ${menu?.kind === 'lib' ? 'btn-menu-open' : ''}`}
           onClick={openMenu('lib')}
-          title="Bibliothèques : courbes et courbes de modulation"
+          title="Courbes (caractéristique, rendement, volume) et courbes de modulation"
         >
-          📚 Bibliothèques <span className="caret">▾</span>
+          📈 Courbes &amp; modulations <span className="caret">▾</span>
         </button>
 
         <span className="toolbar-sep-v" />
