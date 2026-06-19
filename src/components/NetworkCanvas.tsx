@@ -554,15 +554,6 @@ export default function NetworkCanvas() {
     if (pendingLink) {
       const hasV = pendingLink.vertices.length > 0;
       items = [];
-      if (pendingLink.type === 'pipe' && hasV) {
-        const last = pendingLink.vertices.length - 1;
-        const cur = !!pendingLink.fittings[last];
-        items.push(
-          { label: `Dernier sommet : coude (coin vif)${cur ? ' ✓' : ''}`, icon: '⌐', onClick: () => setPendingLastFitting(true) },
-          { label: `Dernier sommet : courbure (rayon)${!cur ? ' ✓' : ''}`, onClick: () => setPendingLastFitting(false) },
-          { type: 'separator' },
-        );
-      }
       if (hasV) items.push({ label: 'Annuler le dernier sommet', icon: '↶', onClick: removeLastPendingVertex });
       items.push({ label: 'Annuler le tracé', icon: '✕', danger: true, onClick: cancelPendingLink });
       setMenu({ x: e.clientX, y: e.clientY, items });

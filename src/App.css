@@ -735,6 +735,14 @@ body {
   height: 16px;
   cursor: pointer;
 }
+.pdb-check input:disabled {
+  cursor: not-allowed;
+}
+.pdb-note {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
 
 /* ---------- Zoom controls ---------- */
 .zoom-controls {

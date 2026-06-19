@@ -152,6 +152,8 @@ interface NetworkState {
   /** Accrochage des angles de tronçon (angles de coudes du commerce). */
   angleSnap: boolean;
   snapAngles: number[];
+  /** Type de sommet posé pendant le tracé : true = coude (coin vif), false = courbure (rayon). */
+  drawElbow: boolean;
   /** Réglages d'affichage de la carte. */
   display: DisplaySettings;
   displayDialogOpen: boolean;
@@ -197,6 +199,7 @@ interface NetworkState {
   setDefaultPipe: (patch: Partial<{ material: string; dn: number; pn: number }>) => void;
   setAngleSnap: (on: boolean) => void;
   setSnapAngles: (angles: number[]) => void;
+  setDrawElbow: (on: boolean) => void;
   requestFit: () => void;
   deleteSelection: () => void;
   updateOptions: (patch: Partial<NetworkOptions>) => void;
@@ -388,6 +391,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   defaultPipe: { material: 'pehd-pe100', dn: 110, pn: 16 },
   angleSnap: false,
   snapAngles: [22.5, 45, 90],
+  drawElbow: false,
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
   curveDialogOpen: false,
@@ -514,11 +518,15 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
   startLink: (type, node1) => set({ pendingLink: { type, node1, vertices: [], fittings: {} } }),
   addLinkVertex: (x, y) =>
-    set((s) =>
-      s.pendingLink
-        ? { pendingLink: { ...s.pendingLink, vertices: [...s.pendingLink.vertices, { x, y }] } }
-        : s,
-    ),
+    set((s) => {
+      const p = s.pendingLink;
+      if (!p) return s;
+      const newIdx = p.vertices.length;
+      const fittings = { ...p.fittings };
+      // applique le type de sommet choisi (coude vif) au nouveau sommet
+      if (s.drawElbow) fittings[newIdx] = true;
+      return { pendingLink: { ...p, vertices: [...p.vertices, { x, y }], fittings } };
+    }),
 
   setPendingLastFitting: (on) =>
     set((s) => {
@@ -687,6 +695,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setDefaultPipe: (patch) => set((s) => ({ defaultPipe: { ...s.defaultPipe, ...patch } })),
   setAngleSnap: (angleSnap) => set({ angleSnap }),
   setSnapAngles: (snapAngles) => set({ snapAngles }),
+  setDrawElbow: (drawElbow) => set({ drawElbow }),
 
   deleteLinkVertex: (linkId, index) => {
     get().commit();

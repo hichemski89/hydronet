@@ -22,8 +22,18 @@ export default function PipeDefaultsBar() {
   const setAngleSnap = useNetworkStore((s) => s.setAngleSnap);
   const snapAngles = useNetworkStore((s) => s.snapAngles);
   const setSnapAngles = useNetworkStore((s) => s.setSnapAngles);
+  const drawElbow = useNetworkStore((s) => s.drawElbow);
+  const setDrawElbow = useNetworkStore((s) => s.setDrawElbow);
+  const setPendingLastFitting = useNetworkStore((s) => s.setPendingLastFitting);
+  const pendingLink = useNetworkStore((s) => s.pendingLink);
 
   if (tool !== 'pipe') return null;
+
+  // Bascule le type de sommet et applique au dernier sommet déjà posé (retour immédiat).
+  const onElbow = (on: boolean) => {
+    setDrawElbow(on);
+    if (pendingLink && pendingLink.vertices.length > 0) setPendingLastFitting(on);
+  };
 
   const mat = getMaterial(dp.material);
   const dia = mat ? getDiameter(mat, dp.dn) : undefined;
@@ -80,6 +90,23 @@ export default function PipeDefaultsBar() {
           <div>
             Rayon mini <strong>{minR.toFixed(2)} m</strong>
           </div>
+        )}
+      </div>
+
+      <div className="pdb-divider" />
+
+      <div className="pdb-section">
+        <label className="pdb-check" title="Sommet anguleux (coude) au lieu d'une courbure arrondie">
+          <input
+            type="checkbox"
+            checked={angleSnap || drawElbow}
+            disabled={angleSnap}
+            onChange={(e) => onElbow(e.target.checked)}
+          />
+          <span>Coude (coin vif)</span>
+        </label>
+        {angleSnap && (
+          <span className="pdb-note">forcé par les angles normalisés</span>
         )}
       </div>
 
