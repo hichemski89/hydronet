@@ -119,7 +119,7 @@ export default function Toolbar() {
   };
 
   const onExportDxf = () => {
-    const dxf = buildDxf(network, results, timeIndex);
+    const dxf = buildDxf(network, results, timeIndex, useNetworkStore.getState().metersPerUnit);
     const blob = new Blob([dxf], { type: 'application/dxf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

@@ -117,6 +117,75 @@ export function roundedPath(
 }
 
 /**
+ * Échantillonne le tracé arrondi en une liste de points (mêmes unités que `pts`).
+ * Les sommets « vifs » (coudes) restent anguleux ; les autres sont arrondis au rayon donné.
+ */
+export function roundedPolyline(
+  pts: Pt[],
+  radiusAt: (interiorIndex: number) => number,
+  isSharp: (interiorIndex: number) => boolean,
+  segs = 10,
+): Pt[] {
+  if (pts.length < 2) return pts.slice();
+  const out: Pt[] = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const A = pts[i - 1];
+    const P = pts[i];
+    const B = pts[i + 1];
+    const r = radiusAt(i - 1);
+    if (r <= 0 || isSharp(i - 1)) {
+      out.push(P);
+      continue;
+    }
+    let u1x = P.x - A.x;
+    let u1y = P.y - A.y;
+    const l1 = Math.hypot(u1x, u1y);
+    let u2x = B.x - P.x;
+    let u2y = B.y - P.y;
+    const l2 = Math.hypot(u2x, u2y);
+    if (l1 < 1e-9 || l2 < 1e-9) {
+      out.push(P);
+      continue;
+    }
+    u1x /= l1;
+    u1y /= l1;
+    u2x /= l2;
+    u2y /= l2;
+    const dot = Math.max(-1, Math.min(1, u1x * u2x + u1y * u2y));
+    const delta = Math.acos(dot);
+    if (delta < 0.02) {
+      out.push(P);
+      continue;
+    }
+    let tan = r * Math.tan(delta / 2);
+    tan = Math.min(tan, l1 * 0.5, l2 * 0.5);
+    const effR = tan / Math.tan(delta / 2);
+    const t1 = { x: P.x - u1x * tan, y: P.y - u1y * tan };
+    const t2 = { x: P.x + u2x * tan, y: P.y + u2y * tan };
+    let bx = -u1x + u2x;
+    let by = -u1y + u2y;
+    const bl = Math.hypot(bx, by) || 1;
+    bx /= bl;
+    by /= bl;
+    const dC = Math.hypot(tan, effR);
+    const C = { x: P.x + bx * dC, y: P.y + by * dC };
+    const a1 = Math.atan2(t1.y - C.y, t1.x - C.x);
+    const a2 = Math.atan2(t2.y - C.y, t2.x - C.x);
+    let da = a2 - a1;
+    while (da <= -Math.PI) da += 2 * Math.PI;
+    while (da > Math.PI) da -= 2 * Math.PI;
+    out.push(t1);
+    for (let k = 1; k < segs; k++) {
+      const ang = a1 + (da * k) / segs;
+      out.push({ x: C.x + effR * Math.cos(ang), y: C.y + effR * Math.sin(ang) });
+    }
+    out.push(t2);
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+/**
  * Pour chaque sommet intermédiaire, indique si le rayon de courbure mini ne peut
  * pas être respecté (segments trop courts) — il faudrait alors insérer un coude.
  * `pts` et `minR` sont dans la même unité (modèle).

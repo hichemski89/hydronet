@@ -1,5 +1,7 @@
 import { Network, SimulationResults } from '../types/network';
 import { flowUnitLabel } from '../utils/format';
+import { roundedPolyline, effectiveBendRadius } from '../utils/pipeGeometry';
+import { minBendRadiusMeters } from '../data/pipeCatalog';
 
 function clock(sec: number): string {
   const h = Math.floor(sec / 3600);
@@ -20,7 +22,12 @@ function fmt(v: number | undefined): string {
  * Génère un DXF (R12) du réseau, avec optionnellement un tableau des résultats
  * et une légende. N'utilise que des entités LINE/CIRCLE/TEXT (compatibles AutoCAD).
  */
-export function buildDxf(network: Network, results?: SimulationResults | null, timeIndex = 0): string {
+export function buildDxf(
+  network: Network,
+  results?: SimulationResults | null,
+  timeIndex = 0,
+  metersPerUnit = 1,
+): string {
   const L: string[] = [];
   const g = (code: number, value: string | number) => {
     L.push(String(code));
@@ -162,7 +169,18 @@ export function buildDxf(network: Network, results?: SimulationResults | null, t
     if (!a || !b) continue;
     const pts = [a, ...(lk.vertices ?? []), b];
     const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    if (lk.type === 'pipe') polyline('CONDUITES', pts, false);
+    if (lk.type === 'pipe') {
+      const minRm = minBendRadiusMeters(lk.material, lk.dn);
+      const drawn =
+        minRm != null && (lk.vertices?.length ?? 0) > 0
+          ? roundedPolyline(
+              pts,
+              (vi) => effectiveBendRadius(lk, vi, minRm) / metersPerUnit,
+              (vi) => !!lk.fittings?.[vi],
+            )
+          : pts;
+      polyline('CONDUITES', drawn, false);
+    }
     else if (lk.type === 'pump') {
       polyline('POMPES', pts, false);
       circle('POMPES', mid.x, mid.y, sym * 0.7);
