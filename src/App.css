@@ -1242,6 +1242,20 @@ body {
   user-select: none;
 }
 
+/* Clignotement de l'élément sélectionné sur le plan */
+@keyframes sel-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+.sel-blink {
+  animation: sel-blink 0.9s ease-in-out infinite;
+}
+
 /* ---------- Sidebar ---------- */
 .sidebar {
   width: 320px;

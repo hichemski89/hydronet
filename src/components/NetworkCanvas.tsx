@@ -714,7 +714,7 @@ export default function NetworkCanvas() {
     const isSel = (selection?.kind === 'link' && selection.id === linkId) || selLinks.includes(linkId);
 
     return (
-      <g key={linkId}>
+      <g key={linkId} className={isSel ? 'sel-blink' : undefined}>
         {/* Zone de clic élargie (invisible) */}
         <path d={path} stroke="transparent" strokeWidth={14} fill="none" data-link={linkId} style={{ cursor: 'pointer' }} />
         <path
@@ -812,7 +812,12 @@ export default function NetworkCanvas() {
     const sw = isSel ? 3 : 1.5;
 
     return (
-      <g key={node.id} data-node={node.id} style={{ cursor: tool === 'select' ? 'move' : 'pointer' }}>
+      <g
+        key={node.id}
+        data-node={node.id}
+        className={isSel ? 'sel-blink' : undefined}
+        style={{ cursor: tool === 'select' ? 'move' : 'pointer' }}
+      >
         {node.type === 'junction' && (
           <circle cx={p.x} cy={p.y} r={NODE_R} fill={fill} stroke={stroke} strokeWidth={sw} data-node={node.id} />
         )}
