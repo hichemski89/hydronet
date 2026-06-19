@@ -294,7 +294,7 @@ export default function SelectByFilterDialog() {
 
   return (
     <div className="modal-overlay" onClick={() => setOpen(false)}>
-      <div className="modal" style={{ width: 440 }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>Sélection par filtre</h3>
           <button className="modal-close" onClick={() => setOpen(false)}>×</button>
