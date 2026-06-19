@@ -72,7 +72,20 @@ export interface DisplaySettings {
   labelSize: number;
   arrowSize: number;
   smoothPipes: boolean;
+  /** Coloration par intervalles fixes (true) ou échelle continue min-max (false). */
+  colorClasses: boolean;
+  /** Seuils de classes par métrique (valeurs croissantes, dans l'unité du modèle). */
+  classBreaks: Record<ResultMetric, number[]>;
 }
+
+export const DEFAULT_CLASS_BREAKS: Record<ResultMetric, number[]> = {
+  pressure: [10, 20, 40, 60],
+  head: [50, 100, 150, 200],
+  demand: [1, 5, 10, 20],
+  flow: [1, 5, 10, 20],
+  velocity: [0.3, 0.5, 1.0, 1.5],
+  headloss: [2, 5, 10, 20],
+};
 
 export const DEFAULT_DISPLAY: DisplaySettings = {
   showNodeLabels: true,
@@ -88,6 +101,8 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   labelSize: 12,
   arrowSize: 6,
   smoothPipes: true,
+  colorClasses: true,
+  classBreaks: DEFAULT_CLASS_BREAKS,
 };
 
 export interface ViewTransform {

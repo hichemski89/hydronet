@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { DisplaySettings, useNetworkStore } from '../store/networkStore';
+import { DisplaySettings, DEFAULT_DISPLAY, useNetworkStore } from '../store/networkStore';
 
 function Toggle({
   label,
@@ -148,19 +148,5 @@ export default function DisplaySettingsDialog() {
 }
 
 function defaultsForReset(): DisplaySettings {
-  return {
-    showNodeLabels: true,
-    showLinkLabels: false,
-    showResultValues: true,
-    showLinkValues: false,
-    showFlowArrows: true,
-    showGrid: true,
-    nodeSize: 8,
-    linkWidth: 3,
-    widthByDiameter: false,
-    backgroundColor: '#f8fafc',
-    labelSize: 12,
-    arrowSize: 6,
-    smoothPipes: true,
-  };
+  return { ...DEFAULT_DISPLAY };
 }

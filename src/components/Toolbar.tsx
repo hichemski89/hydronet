@@ -76,21 +76,21 @@ export default function Toolbar() {
     }
   };
 
-  const onSave = () => {
-    saveProjectFile(network);
-    addRecent(network.meta.name || 'Projet', network);
+  const onSave = async () => {
+    const ok = await saveProjectFile(network);
+    if (ok) addRecent(network.meta.name || 'Projet', network);
   };
 
   // window.prompt n'existe pas dans Electron -> on ouvre une fenêtre de saisie.
   const onSaveAs = () => setSaveAsValue(network.meta.name || 'reseau');
 
-  const confirmSaveAs = () => {
+  const confirmSaveAs = async () => {
     const trimmed = (saveAsValue ?? '').trim() || 'reseau';
     updateMeta({ name: trimmed });
     const net = { ...network, meta: { ...network.meta, name: trimmed } };
-    saveProjectFile(net);
-    addRecent(trimmed, net);
     setSaveAsValue(null);
+    const ok = await saveProjectFile(net);
+    if (ok) addRecent(trimmed, net);
   };
 
   const openMenu = (kind: 'file' | 'lib' | 'export') => (e: React.MouseEvent<HTMLButtonElement>) => {

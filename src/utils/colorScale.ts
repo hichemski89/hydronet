@@ -27,6 +27,23 @@ export function colorFor(t: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+/** Indice de classe (0..breaks.length) pour une valeur selon des seuils croissants. */
+export function classIndexOf(value: number, breaks: number[]): number {
+  let i = 0;
+  while (i < breaks.length && value >= breaks[i]) i++;
+  return i;
+}
+
+/** Couleur de la classe i parmi n (bleu bas -> rouge haut). */
+export function classColor(i: number, n: number): string {
+  return colorFor(n <= 1 ? 0.5 : i / (n - 1));
+}
+
+/** Couleur directe d'une valeur selon des seuils fixes. */
+export function classColorFor(value: number, breaks: number[]): string {
+  return classColor(classIndexOf(value, breaks), breaks.length + 1);
+}
+
 export interface Domain {
   min: number;
   max: number;

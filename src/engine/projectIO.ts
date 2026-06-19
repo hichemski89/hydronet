@@ -9,11 +9,54 @@ interface ProjectFile {
   network: Network;
 }
 
-/** Télécharge le réseau courant sous forme de fichier projet .hydronet (JSON). */
-export function saveProjectFile(network: Network): void {
+/**
+ * Enregistre le réseau au format projet .hydronet.
+ * Utilise la boîte native « Enregistrer sous » (choix du dossier) quand le
+ * navigateur/Electron le permet (File System Access API), sinon téléchargement.
+ * Renvoie true si enregistré, false si l'utilisateur a annulé.
+ */
+export async function saveProjectFile(network: Network): Promise<boolean> {
   const data: ProjectFile = { format: FORMAT, version: VERSION, network };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  triggerDownload(blob, `${safeName(network.meta.name)}.hydronet`);
+  const json = JSON.stringify(data, null, 2);
+  return saveTextFile(json, `${safeName(network.meta.name)}.hydronet`, {
+    mime: 'application/json',
+    description: 'Projet HydroNet',
+    ext: '.hydronet',
+  });
+}
+
+interface SaveOpts {
+  mime: string;
+  description: string;
+  ext: string;
+}
+
+/** Enregistre un texte avec choix du dossier si possible, sinon téléchargement. */
+export async function saveTextFile(text: string, filename: string, opts: SaveOpts): Promise<boolean> {
+  const picker = (window as unknown as { showSaveFilePicker?: (o: unknown) => Promise<FileSystemWritableHandle> })
+    .showSaveFilePicker;
+  if (picker) {
+    try {
+      const handle = await picker({
+        suggestedName: filename,
+        types: [{ description: opts.description, accept: { [opts.mime]: [opts.ext] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return true;
+    } catch (err) {
+      // annulation par l'utilisateur -> ne pas basculer sur le téléchargement
+      if (err instanceof DOMException && err.name === 'AbortError') return false;
+      // autre erreur -> repli téléchargement
+    }
+  }
+  triggerDownload(new Blob([text], { type: opts.mime }), filename);
+  return true;
+}
+
+interface FileSystemWritableHandle {
+  createWritable: () => Promise<{ write: (data: string | Blob) => Promise<void>; close: () => Promise<void> }>;
 }
 
 /** Analyse le contenu d'un fichier projet .hydronet et renvoie le réseau. */

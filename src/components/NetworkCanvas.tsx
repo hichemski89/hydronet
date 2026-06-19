@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNetworkStore } from '../store/networkStore';
 import { NetworkNode } from '../types/network';
-import { colorFor, normalize } from '../utils/colorScale';
+import { colorFor, normalize, classColorFor } from '../utils/colorScale';
 import {
   isNodeMetric,
   nodeValue,
@@ -708,8 +708,10 @@ export default function NetworkCanvas() {
       } else if (lDomain && !isNodeMetric(linkMetric)) {
         const v = linkValue(results, linkId, linkMetric, timeIndex);
         if (v != null && isFinite(v)) {
-          // réseau sans écoulement -> bas de l'échelle (bleu), sinon normalisation
-          stroke = colorFor(staticFlow ? 0 : normalize(Math.abs(v), lDomain));
+          stroke = display.colorClasses
+            ? classColorFor(Math.abs(v), display.classBreaks[linkMetric])
+            : // réseau sans écoulement -> bas de l'échelle (bleu), sinon normalisation
+              colorFor(staticFlow ? 0 : normalize(Math.abs(v), lDomain));
         }
       }
       if (display.showLinkValues) {
@@ -811,7 +813,9 @@ export default function NetworkCanvas() {
       } else if (nDomain && isNodeMetric(nodeMetric)) {
         const v = nodeValue(results, node.id, nodeMetric, timeIndex);
         if (v != null && isFinite(v)) {
-          fill = colorFor(normalize(v, nDomain));
+          fill = display.colorClasses
+            ? classColorFor(v, display.classBreaks[nodeMetric])
+            : colorFor(normalize(v, nDomain));
           resultText = v.toFixed(1);
         }
       }
