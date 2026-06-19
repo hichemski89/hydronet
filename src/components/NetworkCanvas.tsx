@@ -643,6 +643,8 @@ export default function NetworkCanvas() {
         clearMultiSelection();
         if (useNetworkStore.getState().definingClip) setDefiningClip(false);
         if (useNetworkStore.getState().editingVertexLink) setEditingVertexLink(null);
+        // revient toujours sur l'outil Sélection
+        if (useNetworkStore.getState().tool !== 'select') setTool('select');
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (useNetworkStore.getState().selNodes.length || useNetworkStore.getState().selLinks.length)
@@ -652,7 +654,7 @@ export default function NetworkCanvas() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, setDefiningClip, setEditingVertexLink, undo, redo, duplicateSelection]);
+  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, setDefiningClip, setEditingVertexLink, setTool, undo, redo, duplicateSelection]);
 
   // --- Rendu ---
   const renderLink = (linkId: string) => {
