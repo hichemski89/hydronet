@@ -100,6 +100,26 @@ function aggregate(arr: number[] | undefined, agg: Agg, ti: number): number | un
   }
 }
 
+/** Tous les identifiants d'une famille, sans aucune condition. */
+function allOfFamily(network: Network, family: Family): { ids: string[]; kind: 'node' | 'link' } {
+  const fam = FAMILIES.find((f) => f.id === family)!;
+  if (fam.kind === 'node') {
+    const ids = Object.values(network.nodes)
+      .filter((n) => family !== 'junctions' || n.type === 'junction')
+      .map((n) => n.id);
+    return { ids, kind: 'node' };
+  }
+  const ids = Object.values(network.links)
+    .filter(
+      (l) =>
+        (family !== 'pipes' || l.type === 'pipe') &&
+        (family !== 'pumps' || l.type === 'pump') &&
+        (family !== 'valves' || l.type === 'valve'),
+    )
+    .map((l) => l.id);
+  return { ids, kind: 'link' };
+}
+
 /** Calcule la liste des identifiants correspondant au filtre. */
 function evaluate(
   network: Network,
@@ -204,6 +224,7 @@ export default function SelectByFilterDialog() {
   const [v2, setV2] = useState(1);
   const [text, setText] = useState('');
   const [combine, setCombine] = useState<Combine>('new');
+  const [noCond, setNoCond] = useState(false);
 
   const props = propsFor(family);
   const prop = props.find((p) => p.id === propId) ?? props[0];
@@ -221,8 +242,11 @@ export default function SelectByFilterDialog() {
   }, [open, setOpen]);
 
   const result = useMemo(
-    () => evaluate(network, results, ti, family, prop, agg, op, v1, v2, text),
-    [network, results, ti, family, prop, agg, op, v1, v2, text],
+    () =>
+      noCond
+        ? { ...allOfFamily(network, family), needsResults: false }
+        : evaluate(network, results, ti, family, prop, agg, op, v1, v2, text),
+    [noCond, network, results, ti, family, prop, agg, op, v1, v2, text],
   );
 
   if (!open) return null;
@@ -269,6 +293,22 @@ export default function SelectByFilterDialog() {
             </span>
           </label>
 
+          <label className="set-field" style={{ cursor: 'pointer' }}>
+            <span className="set-label">
+              Tout sélectionner
+              <em className="set-hint">sans aucune condition</em>
+            </span>
+            <span className="set-input">
+              <input
+                type="checkbox"
+                checked={noCond}
+                onChange={(e) => setNoCond(e.target.checked)}
+                style={{ width: 18, height: 18 }}
+              />
+            </span>
+          </label>
+
+          {!noCond && (
           <label className="set-field">
             <span className="set-label">Propriété</span>
             <span className="set-input">
@@ -279,8 +319,9 @@ export default function SelectByFilterDialog() {
               </select>
             </span>
           </label>
+          )}
 
-          {isRes && (
+          {!noCond && isRes && (
             <label className="set-field">
               <span className="set-label">
                 Valeur évaluée
@@ -297,7 +338,7 @@ export default function SelectByFilterDialog() {
             </label>
           )}
 
-          {isStr ? (
+          {!noCond && (isStr ? (
             <label className="set-field">
               <span className="set-label">Contient le texte</span>
               <span className="set-input">
@@ -328,7 +369,7 @@ export default function SelectByFilterDialog() {
                 </label>
               )}
             </>
-          )}
+          ))}
 
           <label className="set-field">
             <span className="set-label">Mode de sélection</span>
