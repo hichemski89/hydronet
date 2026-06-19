@@ -16,7 +16,6 @@ type Op = 'lt' | 'le' | 'eq' | 'ge' | 'gt' | 'between' | 'contains';
 type Combine = 'new' | 'add' | 'remove';
 
 const FAMILIES: { id: Family; label: string; kind: 'node' | 'link' }[] = [
-  { id: 'nodes', label: 'Tous les nœuds', kind: 'node' },
   { id: 'junctions', label: 'Nœuds de demande', kind: 'node' },
   { id: 'reservoirs', label: 'Bâches à eau / Sources', kind: 'node' },
   { id: 'tanks', label: 'Réservoirs (stockage)', kind: 'node' },
