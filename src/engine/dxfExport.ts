@@ -64,9 +64,25 @@ export function buildDxf(
     g(21, num(y2));
     g(31, 0);
   };
+  // Polyligne unique (entité POLYLINE ancienne, compatible R12/AutoCAD).
   const polyline = (layer: string, pts: { x: number; y: number }[], closed: boolean) => {
-    for (let i = 0; i < pts.length - 1; i++) line(layer, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
-    if (closed && pts.length > 2) line(layer, pts[pts.length - 1].x, pts[pts.length - 1].y, pts[0].x, pts[0].y);
+    if (pts.length < 2) return;
+    g(0, 'POLYLINE');
+    g(8, layer);
+    g(66, 1);
+    g(10, 0);
+    g(20, 0);
+    g(30, 0);
+    g(70, closed ? 1 : 0);
+    for (const p of pts) {
+      g(0, 'VERTEX');
+      g(8, layer);
+      g(10, num(p.x));
+      g(20, num(p.y));
+      g(30, 0);
+    }
+    g(0, 'SEQEND');
+    g(8, layer);
   };
   const circle = (layer: string, cx: number, cy: number, r: number) => {
     g(0, 'CIRCLE');
