@@ -69,22 +69,17 @@ body {
 }
 
 .project-name {
-  border: 1px solid transparent;
-  background: transparent;
   font-size: 14px;
   font-weight: 600;
   padding: 6px 8px;
   border-radius: 6px;
-  width: 220px;
+  max-width: 220px;
   color: var(--text);
-}
-.project-name:hover {
-  background: var(--bg);
-}
-.project-name:focus {
-  outline: none;
-  border-color: var(--brand);
-  background: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  user-select: none;
 }
 
 .toolbar-group {

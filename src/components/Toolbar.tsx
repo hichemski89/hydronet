@@ -177,12 +177,12 @@ export default function Toolbar() {
         <span className="logo-text">HydroNet</span>
       </div>
 
-      <input
+      <span
         className="project-name"
-        value={network.meta.name}
-        onChange={(e) => updateMeta({ name: e.target.value })}
-        title="Nom du projet"
-      />
+        title="Nom du projet (modifiable via Fichier ▸ Enregistrer sous…)"
+      >
+        {network.meta.name || 'Sans titre'}
+      </span>
 
       <div className="toolbar-group">
         <button
