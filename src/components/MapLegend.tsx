@@ -29,6 +29,7 @@ export default function MapLegend() {
   const criteria = network.criteria;
   const display = useNetworkStore((s) => s.display);
   const updateDisplay = useNetworkStore((s) => s.updateDisplay);
+  const [collapsed, setCollapsed] = useState(false);
 
   if (!results) return null;
 
@@ -60,13 +61,22 @@ export default function MapLegend() {
     updateDisplay({ classBreaks: { ...display.classBreaks, [metric]: breaks } });
 
   return (
-    <div className="map-legend">
+    <div className={`map-legend ${collapsed ? 'collapsed' : ''}`}>
       <div className="legend-row legend-toggle">
         <label>
           <input type="checkbox" checked={showOverlay} onChange={toggleOverlay} /> Colorer les résultats
         </label>
+        <button
+          className="legend-collapse"
+          onClick={() => setCollapsed((c) => !c)}
+          title={collapsed ? 'Développer la légende' : 'Réduire la légende'}
+        >
+          {collapsed ? '▸' : '▾'}
+        </button>
       </div>
 
+      {collapsed ? null : (
+      <>
       <div className="legend-modes">
         <button
           className={`legend-mode ${colorMode === 'metric' ? 'active' : ''}`}
@@ -160,6 +170,8 @@ export default function MapLegend() {
             Seuils modifiables dans <strong>Paramètres ▸ Conformité</strong>.
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
