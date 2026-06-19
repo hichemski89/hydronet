@@ -3,7 +3,6 @@ import { useNetworkStore } from '../store/networkStore';
 import { runSimulation, validateNetwork } from '../engine/epanetRunner';
 import { buildInp } from '../engine/inpBuilder';
 import { parseInp } from '../engine/inpParser';
-import { buildDxf } from '../engine/dxfExport';
 import { saveProjectFile, parseProjectFile, readFileAsText } from '../engine/projectIO';
 import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
@@ -42,6 +41,7 @@ export default function Toolbar() {
   const loadNetwork = useNetworkStore((s) => s.loadNetwork);
   const setBackdropPanelOpen = useNetworkStore((s) => s.setBackdropPanelOpen);
   const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
+  const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -114,17 +114,6 @@ export default function Toolbar() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${(network.meta.name || 'reseau').replace(/[^\w\-]+/g, '_')}.inp`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const onExportDxf = () => {
-    const dxf = buildDxf(network, results, timeIndex, useNetworkStore.getState().metersPerUnit);
-    const blob = new Blob([dxf], { type: 'application/dxf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(network.meta.name || 'reseau').replace(/[^\w\-]+/g, '_')}.dxf`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -216,7 +205,7 @@ export default function Toolbar() {
         <button className="btn" onClick={onExportInp} title="Exporter au format EPANET .inp">
           <ExportIcon size={16} /> .inp
         </button>
-        <button className="btn" onClick={onExportDxf} title="Exporter le plan au format DXF (AutoCAD)">
+        <button className="btn" onClick={() => setDxfDialogOpen(true)} title="Exporter le plan au format DXF (AutoCAD)">
           <ExportIcon size={16} /> .dxf
         </button>
       </div>

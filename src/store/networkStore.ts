@@ -182,6 +182,8 @@ interface NetworkState {
   deleteControl: (id: string) => void;
   curveDialogOpen: boolean;
   setCurveDialogOpen: (open: boolean) => void;
+  dxfDialogOpen: boolean;
+  setDxfDialogOpen: (open: boolean) => void;
   addCurve: (type: CurveType) => string;
   updateCurve: (id: string, patch: Partial<Curve>) => void;
   renameCurve: (id: string, newId: string) => void;
@@ -351,6 +353,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   display: { ...DEFAULT_DISPLAY, ...(loadPersistedDisplay<Partial<DisplaySettings>>() ?? {}) },
   displayDialogOpen: false,
   curveDialogOpen: false,
+  dxfDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
   definingClip: false,
@@ -791,6 +794,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   },
 
   setCurveDialogOpen: (curveDialogOpen) => set({ curveDialogOpen }),
+  setDxfDialogOpen: (dxfDialogOpen) => set({ dxfDialogOpen }),
 
   addCurve: (type) => {
     const s = get();

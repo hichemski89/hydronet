@@ -27,6 +27,8 @@ export function buildDxf(
   results?: SimulationResults | null,
   timeIndex = 0,
   metersPerUnit = 1,
+  scale = 0,
+  textMm = 2.5,
 ): string {
   const L: string[] = [];
   const g = (code: number, value: string | number) => {
@@ -49,8 +51,16 @@ export function buildDxf(
   const maxX = xs.length ? Math.max(...xs) : 100;
   const minY = ys.length ? Math.min(...ys) : 0;
   const maxY = ys.length ? Math.max(...ys) : 100;
-  const diag = Math.hypot(maxX - minX, maxY - minY) || 100;
-  const sym = Math.max(diag * 0.006, 0.001);
+  // Taille des symboles/textes : selon l'échelle de tracé, sinon auto (relatif à l'emprise)
+  let sym: number;
+  if (scale > 0) {
+    // hauteur de texte voulue (mm sur le plan) convertie en unités du dessin
+    const thModel = ((textMm / 1000) * scale) / (metersPerUnit || 1);
+    sym = thModel / 1.3;
+  } else {
+    const diag = Math.hypot(maxX - minX, maxY - minY) || 100;
+    sym = Math.max(diag * 0.006, 0.001);
+  }
   const txt = sym * 1.3;
   const rowH = txt * 2;
 
