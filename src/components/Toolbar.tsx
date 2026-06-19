@@ -285,19 +285,6 @@ export default function Toolbar() {
         </button>
       </div>
 
-      <div className="toolbar-spacer" />
-
-      <button
-        className="toolbar-settings-chip"
-        onClick={() => setSimSettingsOpen(true)}
-        title="Modifier les paramètres de simulation"
-      >
-        <span>{network.options.flowUnits}</span>
-        <span className="chip-sep">·</span>
-        <span>{network.options.headlossFormula}</span>
-        <SettingsIcon size={14} />
-      </button>
-
       {menu && (
         <ContextMenu
           x={menu.x}

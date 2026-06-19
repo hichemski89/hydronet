@@ -38,9 +38,10 @@ body {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 16px;
-  height: 52px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 7px 14px;
+  min-height: 52px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
@@ -73,8 +74,8 @@ body {
   font-weight: 600;
   padding: 6px 8px;
   border-radius: 6px;
-  flex: 0 0 200px;
-  width: 200px;
+  flex: 0 0 160px;
+  width: 160px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -86,7 +87,8 @@ body {
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .toolbar-spacer {
   flex: 1;
