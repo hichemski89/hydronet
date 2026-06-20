@@ -5,9 +5,9 @@
 // licences est en ligne et que vous avez collé la clé publique ci-dessous.
 export const LICENSE = {
   /** Active l'écran d'activation et la vérification de licence. */
-  ENABLED: false,
+  ENABLED: true,
   /** URL publique de votre serveur de licences (sans / final). */
-  SERVER_URL: 'https://VOTRE-serveur-licences.onrender.com',
+  SERVER_URL: 'https://hydronet-licenses.onrender.com',
   /** Doit correspondre au PRODUCT du serveur. */
   PRODUCT: 'HydroNet',
   /** Clé publique Ed25519 (SPKI base64) produite par `npm run keygen`. */
