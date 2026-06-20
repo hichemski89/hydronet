@@ -74,6 +74,10 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/', (_req, res) =>
+  res.type('text').send(`Serveur de licences ${PRODUCT} — en ligne. Endpoints : /health, /activate, /validate.`),
+);
+
 app.get('/health', (_req, res) => res.json({ ok: true, product: PRODUCT }));
 
 // Activation : lie la clé au poste et renvoie un jeton signé.
