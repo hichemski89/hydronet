@@ -31,18 +31,18 @@ const PRIVATE_KEY = crypto.createPrivateKey({
 });
 
 // Clés valides (depuis l'env) + clés créées à chaud (en mémoire)
-const seededKeys = new Set(
-  (process.env.LICENSE_KEYS || '')
-    .split(',')
-    .map((k) => k.trim().toUpperCase())
-    .filter(Boolean),
-);
+const parseKeys = (v) =>
+  new Set((v || '').split(',').map((k) => k.trim().toUpperCase()).filter(Boolean));
+
+const seededKeys = parseKeys(process.env.LICENSE_KEYS); // 1 clé = 1 poste
+const multiKeys = parseKeys(process.env.LICENSE_KEYS_MULTI); // démo : multi-postes
 const createdKeys = new Set();
 const revoked = new Set();
 const bindings = new Map(); // key -> machineId
 
+const isMulti = (key) => multiKeys.has(key);
 const isValidKey = (key) =>
-  !revoked.has(key) && (seededKeys.has(key) || createdKeys.has(key));
+  !revoked.has(key) && (seededKeys.has(key) || multiKeys.has(key) || createdKeys.has(key));
 
 function b64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -89,11 +89,14 @@ app.post('/activate', (req, res) => {
 
   if (!isValidKey(K)) return res.status(403).json({ error: 'Clé de licence invalide.' });
 
-  const bound = bindings.get(K);
-  if (bound && bound !== machineId) {
-    return res.status(409).json({ error: 'Cette clé est déjà activée sur un autre poste.' });
+  // Clé démo multi-postes : pas de liaison, utilisable partout.
+  if (!isMulti(K)) {
+    const bound = bindings.get(K);
+    if (bound && bound !== machineId) {
+      return res.status(409).json({ error: 'Cette clé est déjà activée sur un autre poste.' });
+    }
+    bindings.set(K, machineId);
   }
-  bindings.set(K, machineId);
   return res.json({ token: signActivation(K, machineId) });
 });
 
@@ -102,8 +105,10 @@ app.post('/validate', (req, res) => {
   const { key, machineId } = req.body || {};
   const K = String(key || '').trim().toUpperCase();
   if (!isValidKey(K)) return res.json({ valid: false, reason: 'revoked' });
-  const bound = bindings.get(K);
-  if (bound && bound !== machineId) return res.json({ valid: false, reason: 'other-machine' });
+  if (!isMulti(K)) {
+    const bound = bindings.get(K);
+    if (bound && bound !== machineId) return res.json({ valid: false, reason: 'other-machine' });
+  }
   return res.json({ valid: true });
 });
 
