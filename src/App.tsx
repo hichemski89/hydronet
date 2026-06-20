@@ -17,6 +17,7 @@ import DxfExportDialog from './components/DxfExportDialog';
 import SimSettingsDialog from './components/SimSettingsDialog';
 import SelectByFilterDialog from './components/SelectByFilterDialog';
 import LicenseGate from './components/LicenseGate';
+import ActivationGate from './components/ActivationGate';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -53,6 +54,7 @@ export default function App() {
       <SimSettingsDialog />
       <SelectByFilterDialog />
       <LicenseGate />
+      <ActivationGate />
     </div>
   );
 }

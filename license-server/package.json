@@ -1,0 +1,14 @@
+{
+  "name": "hydronet-license-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serveur de licences HydroNet (activation + signature Ed25519)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "keygen": "node keygen.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
