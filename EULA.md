@@ -1,10 +1,8 @@
 # Contrat de Licence Utilisateur Final (CLUF) — HydroNet
 
-© 2026 HydroNet — Tous droits réservés.
+© 2026 NovaSoft — Tous droits réservés.
 
-> ⚠️ Modèle à faire valider par un juriste avant commercialisation. Remplacez
-> l'éditeur et la juridiction par vos informations légales réelles (voir
-> `src/legal/eula.ts`).
+> ⚠️ Modèle à faire valider par un juriste avant commercialisation.
 
 **IMPORTANT — À LIRE ATTENTIVEMENT.** En installant, copiant ou utilisant le
 logiciel HydroNet (le « Logiciel »), vous acceptez d'être lié par les termes du
@@ -12,7 +10,7 @@ présent contrat. Si vous n'acceptez pas ces termes, n'installez pas et
 n'utilisez pas le Logiciel.
 
 ## 1. Objet
-Le présent contrat régit l'utilisation du Logiciel HydroNet, édité par HydroNet
+Le présent contrat régit l'utilisation du Logiciel HydroNet, édité par NovaSoft
 (l'« Éditeur »), ainsi que de toute mise à jour ou documentation associée.
 
 ## 2. Concession de licence
@@ -56,7 +54,8 @@ de tout dommage direct ou indirect résultant de l'utilisation ou de
 l'impossibilité d'utiliser le Logiciel.
 
 ## 9. Droit applicable
-Le présent contrat est régi par le droit de **[pays / juridiction à compléter]**.
+Le présent contrat est régi par le droit de **l'Algérie** ; tout litige relève de
+la compétence des tribunaux algériens.
 
 ## 10. Contact
 Pour toute question relative à la licence : hichemnar6@gmail.com

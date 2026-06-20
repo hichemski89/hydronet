@@ -1,5 +1,5 @@
 /*
- * HydroNet — © 2026 HydroNet — Tous droits réservés. Logiciel propriétaire.
+ * HydroNet — © 2026 NovaSoft — Tous droits réservés. Logiciel propriétaire.
  * Toute copie, distribution ou ingénierie inverse non autorisée est interdite.
  */
 // Process principal Electron — emballe l'application web sans la modifier.

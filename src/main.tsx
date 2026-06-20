@@ -1,6 +1,6 @@
 /*
  * HydroNet — Modélisation et simulation des réseaux d'eau
- * © 2026 HydroNet — Tous droits réservés. Logiciel propriétaire.
+ * © 2026 NovaSoft — Tous droits réservés. Logiciel propriétaire.
  * Toute copie, distribution ou ingénierie inverse non autorisée est interdite.
  */
 import { StrictMode } from 'react'

@@ -3,11 +3,11 @@
 // et faites valider ce texte par un juriste avant commercialisation.
 
 export const PRODUCT = 'HydroNet';
-export const EDITOR = 'HydroNet'; // TODO: nom/société légale de l'éditeur
+export const EDITOR = 'NovaSoft';
 export const COPYRIGHT_YEAR = '2026';
 export const APP_VERSION = '1.0.0';
 export const CONTACT_EMAIL = 'hichemnar6@gmail.com';
-export const JURISDICTION = '[pays / juridiction à compléter]';
+export const JURISDICTION = "l'Algérie";
 
 export const COPYRIGHT = `© ${COPYRIGHT_YEAR} ${EDITOR} — Tous droits réservés.`;
 
