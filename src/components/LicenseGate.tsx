@@ -13,6 +13,7 @@ export default function LicenseGate() {
   const licenseOpen = useNetworkStore((s) => s.licenseOpen);
   const setLicenseOpen = useNetworkStore((s) => s.setLicenseOpen);
   const [accepted, setAccepted] = useState(true); // optimiste -> ajusté au montage
+  const [declined, setDeclined] = useState(false);
 
   useEffect(() => {
     setAccepted(localStorage.getItem(ACCEPT_KEY) === '1');
@@ -36,6 +37,40 @@ export default function LicenseGate() {
     if (mustAccept) return; // pas de fermeture tant que non accepté
     setLicenseOpen(false);
   };
+
+  const decline = () => {
+    // Application PC : ferme la fenêtre Electron. Web : on bloque avec un message.
+    try {
+      window.close();
+    } catch {
+      /* ignore */
+    }
+    setDeclined(true);
+  };
+
+  // Écran de refus (web) : impossible d'utiliser le logiciel sans accepter.
+  if (mustAccept && declined) {
+    return (
+      <div className="modal-overlay license-overlay">
+        <div className="modal license-modal" style={{ width: 440 }}>
+          <div className="modal-header">
+            <h3>Conditions refusées</h3>
+          </div>
+          <div className="modal-body">
+            <p className="license-about">
+              Vous avez refusé le contrat de licence. L’utilisation de {PRODUCT} n’est pas
+              autorisée sans acceptation. Veuillez fermer l’application.
+            </p>
+          </div>
+          <div className="modal-footer">
+            <button className="btn" onClick={() => setDeclined(false)}>
+              Revoir le contrat
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-overlay license-overlay" onClick={close}>
@@ -62,6 +97,9 @@ export default function LicenseGate() {
               <span className="license-foot-note">
                 Vous devez accepter pour utiliser le logiciel.
               </span>
+              <button className="btn" onClick={decline}>
+                Refuser
+              </button>
               <button className="btn btn-primary" onClick={accept}>
                 J’accepte
               </button>
