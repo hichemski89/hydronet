@@ -49,6 +49,7 @@ export default function Toolbar() {
   const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
   const setSelectDialogOpen = useNetworkStore((s) => s.setSelectDialogOpen);
   const setLicenseOpen = useNetworkStore((s) => s.setLicenseOpen);
+  const setHelpOpen = useNetworkStore((s) => s.setHelpOpen);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -56,7 +57,7 @@ export default function Toolbar() {
   const snapToGrid = useNetworkStore((s) => s.snapToGrid);
   const toggleSnap = useNetworkStore((s) => s.toggleSnap);
   const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState<{ kind: 'file' | 'lib' | 'export'; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ kind: 'file' | 'lib' | 'export' | 'help'; x: number; y: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const onOpenFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,7 +91,7 @@ export default function Toolbar() {
     newNetwork();
   };
 
-  const openMenu = (kind: 'file' | 'lib' | 'export') => (e: React.MouseEvent<HTMLButtonElement>) => {
+  const openMenu = (kind: 'file' | 'lib' | 'export' | 'help') => (e: React.MouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     setMenu((m) => (m?.kind === kind ? null : { kind, x: r.left, y: r.bottom + 4 }));
   };
@@ -111,8 +112,6 @@ export default function Toolbar() {
           onClick: () => loadRecentProject(r.id),
         }))
       : [{ label: 'Aucun fichier récent', disabled: true } as MenuItem]),
-    { type: 'separator' },
-    { label: 'À propos / Licence…', icon: '©', onClick: () => setLicenseOpen(true) },
   ];
 
   const libMenuItems: MenuItem[] = [
@@ -176,6 +175,11 @@ export default function Toolbar() {
     { type: 'separator' },
     { label: 'EPANET (.inp)', icon: '📤', onClick: onExportInp },
     { label: 'AutoCAD (.dxf)', icon: '📐', onClick: () => setDxfDialogOpen(true) },
+  ];
+
+  const helpMenuItems: MenuItem[] = [
+    { label: 'Documentation', sub: 'guide d’utilisation', icon: '📖', onClick: () => setHelpOpen(true) },
+    { label: 'À propos / Licence', icon: 'ℹ️', onClick: () => setLicenseOpen(true) },
   ];
 
   return (
@@ -291,6 +295,17 @@ export default function Toolbar() {
         >
           <ExportIcon size={16} /> Exporter <span className="caret">▾</span>
         </button>
+
+        <span className="toolbar-spacer" />
+
+        {/* 6 · Aide */}
+        <button
+          className={`btn btn-menu ${menu?.kind === 'help' ? 'btn-menu-open' : ''}`}
+          onClick={openMenu('help')}
+          title="Documentation et À propos"
+        >
+          ❓ Aide <span className="caret">▾</span>
+        </button>
       </div>
 
       {menu && (
@@ -298,7 +313,13 @@ export default function Toolbar() {
           x={menu.x}
           y={menu.y}
           items={
-            menu.kind === 'file' ? fileMenuItems : menu.kind === 'lib' ? libMenuItems : exportMenuItems
+            menu.kind === 'file'
+              ? fileMenuItems
+              : menu.kind === 'lib'
+                ? libMenuItems
+                : menu.kind === 'export'
+                  ? exportMenuItems
+                  : helpMenuItems
           }
           onClose={() => setMenu(null)}
         />

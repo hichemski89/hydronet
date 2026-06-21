@@ -218,6 +218,8 @@ interface NetworkState {
   setSelectDialogOpen: (open: boolean) => void;
   licenseOpen: boolean;
   setLicenseOpen: (open: boolean) => void;
+  helpOpen: boolean;
+  setHelpOpen: (open: boolean) => void;
   patternDialogOpen: boolean;
   setPatternDialogOpen: (open: boolean) => void;
   addPattern: () => string;
@@ -401,6 +403,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   simSettingsOpen: false,
   selectDialogOpen: false,
   licenseOpen: false,
+  helpOpen: false,
   patternDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
@@ -851,6 +854,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setSimSettingsOpen: (simSettingsOpen) => set({ simSettingsOpen }),
   setSelectDialogOpen: (selectDialogOpen) => set({ selectDialogOpen }),
   setLicenseOpen: (licenseOpen) => set({ licenseOpen }),
+  setHelpOpen: (helpOpen) => set({ helpOpen }),
   setPatternDialogOpen: (patternDialogOpen) => set({ patternDialogOpen }),
 
   addPattern: () => {

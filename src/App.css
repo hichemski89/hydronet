@@ -317,6 +317,45 @@ body {
   font-size: 12.5px;
   margin: 4px 0 0;
 }
+
+/* Documentation */
+.help-modal {
+  width: 720px;
+  max-width: 94vw;
+}
+.help-body {
+  max-height: 66vh;
+  overflow-y: auto;
+}
+.help-intro {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.help-body h4 {
+  margin: 16px 0 6px;
+  font-size: 14px;
+  color: var(--brand);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.help-body ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.help-body li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.help-foot {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
 .legend-toggle {
   margin-bottom: 8px;
   font-weight: 600;

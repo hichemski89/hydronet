@@ -18,6 +18,7 @@ import SimSettingsDialog from './components/SimSettingsDialog';
 import SelectByFilterDialog from './components/SelectByFilterDialog';
 import LicenseGate from './components/LicenseGate';
 import ActivationGate from './components/ActivationGate';
+import HelpDialog from './components/HelpDialog';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -55,6 +56,7 @@ export default function App() {
       <SelectByFilterDialog />
       <LicenseGate />
       <ActivationGate />
+      <HelpDialog />
     </div>
   );
 }
