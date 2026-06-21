@@ -5,14 +5,16 @@
  *
  * Variables d'environnement :
  *  - LICENSE_PRIVATE_KEY : clé privée Ed25519 (base64 PKCS8) — voir keygen.js
- *  - LICENSE_KEYS        : clés valides séparées par des virgules (ex. "ABCD-1234,EFGH-5678")
+ *  - LICENSE_KEYS        : clés valides « 1 clé = 1 poste » (séparées par des virgules)
+ *  - LICENSE_KEYS_MULTI  : clés démo multi-postes (séparées par des virgules)
  *  - ADMIN_SECRET        : secret pour créer/révoquer des clés
  *  - PRODUCT             : nom du produit (défaut "HydroNet")
- *  - PORT                : port d'écoute (Render le fournit)
+ *  - PORT                : port d'écoute (fourni par Render)
  *
- * ⚠️ MVP : les liaisons (clé↔poste) et les clés créées via /admin sont en
- * mémoire (perdues au redémarrage). Pour la production, branchez une base de
- * données (Postgres, Redis…). Les clés de LICENSE_KEYS restent toujours valides.
+ *  Persistance (recommandée en production) — Upstash Redis (REST) :
+ *  - UPSTASH_REDIS_REST_URL
+ *  - UPSTASH_REDIS_REST_TOKEN
+ *  Sans ces variables, le stockage est en mémoire (perdu au redémarrage).
  */
 const express = require('express');
 const crypto = require('crypto');
@@ -30,20 +32,65 @@ const PRIVATE_KEY = crypto.createPrivateKey({
   type: 'pkcs8',
 });
 
-// Clés valides (depuis l'env) + clés créées à chaud (en mémoire)
 const parseKeys = (v) =>
   new Set((v || '').split(',').map((k) => k.trim().toUpperCase()).filter(Boolean));
 
 const seededKeys = parseKeys(process.env.LICENSE_KEYS); // 1 clé = 1 poste
 const multiKeys = parseKeys(process.env.LICENSE_KEYS_MULTI); // démo : multi-postes
-const createdKeys = new Set();
-const revoked = new Set();
-const bindings = new Map(); // key -> machineId
-
 const isMulti = (key) => multiKeys.has(key);
-const isValidKey = (key) =>
-  !revoked.has(key) && (seededKeys.has(key) || multiKeys.has(key) || createdKeys.has(key));
 
+// ---------- Couche de stockage (Redis Upstash, sinon mémoire) ----------
+function memoryStore() {
+  const bind = new Map();
+  const revoked = new Set();
+  const created = new Set();
+  return {
+    kind: 'mémoire',
+    getBinding: (k) => bind.get(k) ?? null,
+    setBinding: (k, m) => void bind.set(k, m),
+    delBinding: (k) => void bind.delete(k),
+    isRevoked: (k) => revoked.has(k),
+    revoke: (k) => void revoked.add(k),
+    isCreated: (k) => created.has(k),
+    addCreated: (k) => void created.add(k),
+  };
+}
+
+function redisStore(url, token) {
+  const cmd = async (...args) => {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args),
+    });
+    if (!r.ok) throw new Error(`Redis ${r.status}`);
+    const d = await r.json();
+    return d.result;
+  };
+  return {
+    kind: 'Upstash Redis',
+    getBinding: (k) => cmd('GET', `bind:${k}`),
+    setBinding: (k, m) => cmd('SET', `bind:${k}`, m),
+    delBinding: (k) => cmd('DEL', `bind:${k}`),
+    isRevoked: async (k) => (await cmd('SISMEMBER', 'revoked', k)) === 1,
+    revoke: (k) => cmd('SADD', 'revoked', k),
+    isCreated: async (k) => (await cmd('SISMEMBER', 'created', k)) === 1,
+    addCreated: (k) => cmd('SADD', 'created', k),
+  };
+}
+
+const store =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? redisStore(process.env.UPSTASH_REDIS_REST_URL, process.env.UPSTASH_REDIS_REST_TOKEN)
+    : memoryStore();
+
+async function isValidKey(K) {
+  if (await store.isRevoked(K)) return false;
+  if (seededKeys.has(K) || multiKeys.has(K)) return true;
+  return store.isCreated(K);
+}
+
+// ---------- Signature ----------
 function b64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -62,10 +109,9 @@ function signActivation(key, machineId) {
   return b64url(data) + '.' + b64url(sig);
 }
 
+// ---------- API ----------
 const app = express();
 app.use(express.json());
-
-// CORS (le client web appelle ce serveur depuis un autre domaine)
 app.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Content-Type, x-admin-secret');
@@ -74,43 +120,46 @@ app.use((req, res, next) => {
   next();
 });
 
+const wrap = (fn) => (req, res) => fn(req, res).catch((e) => {
+  console.error(e);
+  res.status(500).json({ error: 'Erreur serveur.' });
+});
+
 app.get('/', (_req, res) =>
   res.type('text').send(`Serveur de licences ${PRODUCT} — en ligne. Endpoints : /health, /activate, /validate.`),
 );
-
-app.get('/health', (_req, res) => res.json({ ok: true, product: PRODUCT }));
+app.get('/health', (_req, res) => res.json({ ok: true, product: PRODUCT, storage: store.kind }));
 
 // Activation : lie la clé au poste et renvoie un jeton signé.
-app.post('/activate', (req, res) => {
+app.post('/activate', wrap(async (req, res) => {
   const { product, key, machineId } = req.body || {};
   if (product !== PRODUCT) return res.status(400).json({ error: 'Produit inconnu.' });
   if (!key || !machineId) return res.status(400).json({ error: 'Clé ou identifiant manquant.' });
   const K = String(key).trim().toUpperCase();
 
-  if (!isValidKey(K)) return res.status(403).json({ error: 'Clé de licence invalide.' });
+  if (!(await isValidKey(K))) return res.status(403).json({ error: 'Clé de licence invalide.' });
 
-  // Clé démo multi-postes : pas de liaison, utilisable partout.
   if (!isMulti(K)) {
-    const bound = bindings.get(K);
+    const bound = await store.getBinding(K);
     if (bound && bound !== machineId) {
       return res.status(409).json({ error: 'Cette clé est déjà activée sur un autre poste.' });
     }
-    bindings.set(K, machineId);
+    await store.setBinding(K, machineId);
   }
   return res.json({ token: signActivation(K, machineId) });
-});
+}));
 
 // Re-vérification en ligne (révocation / poste).
-app.post('/validate', (req, res) => {
+app.post('/validate', wrap(async (req, res) => {
   const { key, machineId } = req.body || {};
   const K = String(key || '').trim().toUpperCase();
-  if (!isValidKey(K)) return res.json({ valid: false, reason: 'revoked' });
+  if (!(await isValidKey(K))) return res.json({ valid: false, reason: 'revoked' });
   if (!isMulti(K)) {
-    const bound = bindings.get(K);
+    const bound = await store.getBinding(K);
     if (bound && bound !== machineId) return res.json({ valid: false, reason: 'other-machine' });
   }
   return res.json({ valid: true });
-});
+}));
 
 // --- Administration (protégée par ADMIN_SECRET) ---
 function admin(req, res, next) {
@@ -120,28 +169,26 @@ function admin(req, res, next) {
   next();
 }
 
-// Crée une nouvelle clé (à appeler après un paiement).
-app.post('/admin/keys', admin, (_req, res) => {
+app.post('/admin/keys', admin, wrap(async (_req, res) => {
   const seg = () => crypto.randomBytes(2).toString('hex').toUpperCase();
   const key = `HN-${seg()}-${seg()}-${seg()}-${seg()}`;
-  createdKeys.add(key);
+  await store.addCreated(key);
   res.json({ key });
-});
+}));
 
-app.post('/admin/revoke', admin, (req, res) => {
+app.post('/admin/revoke', admin, wrap(async (req, res) => {
   const K = String(req.body?.key || '').trim().toUpperCase();
   if (!K) return res.status(400).json({ error: 'Clé manquante.' });
-  revoked.add(K);
-  bindings.delete(K);
+  await store.revoke(K);
+  await store.delBinding(K);
   res.json({ revoked: K });
-});
+}));
 
-// Libère la liaison d'une clé (transfert vers un autre poste).
-app.post('/admin/unbind', admin, (req, res) => {
+app.post('/admin/unbind', admin, wrap(async (req, res) => {
   const K = String(req.body?.key || '').trim().toUpperCase();
-  bindings.delete(K);
+  await store.delBinding(K);
   res.json({ unbound: K });
-});
+}));
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Serveur de licences HydroNet sur le port ${PORT}`));
+app.listen(PORT, () => console.log(`Serveur de licences ${PRODUCT} sur le port ${PORT} — stockage : ${store.kind}`));

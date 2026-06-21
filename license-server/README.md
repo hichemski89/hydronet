@@ -42,8 +42,14 @@ PUBLIC_KEY_B64: 'VOTRE_CLE_PUBLIQUE',
 - `POST /admin/revoke` `{ key }` → révoque
 - `POST /admin/unbind` `{ key }` → libère la liaison (transfert de poste)
 
-## ⚠️ Production
-Les liaisons clé↔poste et les clés créées via `/admin` sont **en mémoire**
-(perdues au redémarrage). Pour la production, branchez une base de données
-(Render Postgres, Upstash Redis…). Les clés listées dans `LICENSE_KEYS`
-restent toujours valides.
+## Persistance (production) — Upstash Redis
+Sans base de données, les liaisons clé↔poste et les clés créées via `/admin`
+sont **en mémoire** (perdues au redémarrage). Pour la production :
+
+1. Créez une base **Upstash Redis** (gratuite) : https://upstash.com → Create Database.
+2. Dans l'onglet **REST API**, copiez `UPSTASH_REDIS_REST_URL` et
+   `UPSTASH_REDIS_REST_TOKEN`.
+3. Ajoutez ces deux variables d'environnement sur Render → le serveur bascule
+   automatiquement sur Redis (les liaisons et clés créées deviennent permanentes).
+
+`/health` indique le stockage actif (`mémoire` ou `Upstash Redis`).
