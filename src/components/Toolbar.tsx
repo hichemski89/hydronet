@@ -295,18 +295,18 @@ export default function Toolbar() {
         >
           <ExportIcon size={16} /> Exporter <span className="caret">▾</span>
         </button>
-
-        <span className="toolbar-spacer" />
-
-        {/* 6 · Aide */}
-        <button
-          className={`btn btn-menu ${menu?.kind === 'help' ? 'btn-menu-open' : ''}`}
-          onClick={openMenu('help')}
-          title="Documentation et À propos"
-        >
-          ❓ Aide <span className="caret">▾</span>
-        </button>
       </div>
+
+      <span className="toolbar-spacer" />
+
+      {/* 6 · Aide */}
+      <button
+        className={`btn btn-menu ${menu?.kind === 'help' ? 'btn-menu-open' : ''}`}
+        onClick={openMenu('help')}
+        title="Documentation et À propos"
+      >
+        ❓ Aide <span className="caret">▾</span>
+      </button>
 
       {menu && (
         <ContextMenu
