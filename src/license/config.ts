@@ -11,7 +11,7 @@ export const LICENSE = {
   /** Doit correspondre au PRODUCT du serveur. */
   PRODUCT: 'HydroNet',
   /** Clé publique Ed25519 (SPKI base64) produite par `npm run keygen`. */
-  PUBLIC_KEY_B64: 'MCowBQYDK2VwAyEAJNJq1YyqrNyT74AmC6U8yggEszjH/yigVQCqFD6jCfc=',
+  PUBLIC_KEY_B64: 'MCowBQYDK2VwAyEAzCPpOplBru4/rL2KHNRWwlrWKZOZgBszTjStEKkYjbs=',
   /** Délai avant re-vérification en ligne (jours). */
   RECHECK_DAYS: 30,
   /** Tolérance hors-ligne au-delà du délai de re-vérification (jours). */
