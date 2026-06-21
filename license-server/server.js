@@ -21,6 +21,7 @@ const crypto = require('crypto');
 
 const PRODUCT = process.env.PRODUCT || 'HydroNet';
 const RECHECK_DAYS = 30;
+const DEMO_DAYS = Number(process.env.DEMO_DAYS || 3); // durée d'essai des clés démo (par poste)
 
 if (!process.env.LICENSE_PRIVATE_KEY) {
   console.error('LICENSE_PRIVATE_KEY manquante. Lancez `npm run keygen`.');
@@ -44,6 +45,7 @@ function memoryStore() {
   const bind = new Map();
   const revoked = new Set();
   const created = new Set();
+  const demo = new Map();
   return {
     kind: 'mémoire',
     getBinding: (k) => bind.get(k) ?? null,
@@ -53,6 +55,8 @@ function memoryStore() {
     revoke: (k) => void revoked.add(k),
     isCreated: (k) => created.has(k),
     addCreated: (k) => void created.add(k),
+    getDemoStart: (k, m) => demo.get(`${k}|${m}`) ?? null,
+    setDemoStart: (k, m, t) => void demo.set(`${k}|${m}`, t),
   };
 }
 
@@ -76,6 +80,8 @@ function redisStore(url, token) {
     revoke: (k) => cmd('SADD', 'revoked', k),
     isCreated: async (k) => (await cmd('SISMEMBER', 'created', k)) === 1,
     addCreated: (k) => cmd('SADD', 'created', k),
+    getDemoStart: (k, m) => cmd('GET', `demo:${k}:${m}`),
+    setDemoStart: (k, m, t) => cmd('SET', `demo:${k}:${m}`, String(t)),
   };
 }
 
@@ -95,14 +101,15 @@ function b64url(buf) {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function signActivation(key, machineId) {
+function signActivation(key, machineId, expiresAt) {
   const payload = {
     product: PRODUCT,
     key,
     machineId,
-    plan: 'perpetual',
+    plan: expiresAt ? 'demo' : 'perpetual',
     issuedAt: Date.now(),
     recheckAfterDays: RECHECK_DAYS,
+    ...(expiresAt ? { expiresAt } : {}),
   };
   const data = Buffer.from(JSON.stringify(payload), 'utf8');
   const sig = crypto.sign(null, data, PRIVATE_KEY);
@@ -139,13 +146,26 @@ app.post('/activate', wrap(async (req, res) => {
 
   if (!(await isValidKey(K))) return res.status(403).json({ error: 'Clé de licence invalide.' });
 
-  if (!isMulti(K)) {
-    const bound = await store.getBinding(K);
-    if (bound && bound !== machineId) {
-      return res.status(409).json({ error: 'Cette clé est déjà activée sur un autre poste.' });
+  // Clé démo : multi-postes mais limitée dans le temps par poste.
+  if (isMulti(K)) {
+    let first = Number(await store.getDemoStart(K, machineId)) || 0;
+    if (!first) {
+      first = Date.now();
+      await store.setDemoStart(K, machineId, first);
     }
-    await store.setBinding(K, machineId);
+    const expiresAt = first + DEMO_DAYS * 86400000;
+    if (Date.now() > expiresAt) {
+      return res.status(403).json({ error: `Période d'essai de ${DEMO_DAYS} jours terminée.` });
+    }
+    return res.json({ token: signActivation(K, machineId, expiresAt) });
   }
+
+  // Clé client : 1 poste.
+  const bound = await store.getBinding(K);
+  if (bound && bound !== machineId) {
+    return res.status(409).json({ error: 'Cette clé est déjà activée sur un autre poste.' });
+  }
+  await store.setBinding(K, machineId);
   return res.json({ token: signActivation(K, machineId) });
 }));
 
@@ -154,10 +174,15 @@ app.post('/validate', wrap(async (req, res) => {
   const { key, machineId } = req.body || {};
   const K = String(key || '').trim().toUpperCase();
   if (!(await isValidKey(K))) return res.json({ valid: false, reason: 'revoked' });
-  if (!isMulti(K)) {
-    const bound = await store.getBinding(K);
-    if (bound && bound !== machineId) return res.json({ valid: false, reason: 'other-machine' });
+  if (isMulti(K)) {
+    const first = Number(await store.getDemoStart(K, machineId)) || 0;
+    if (first && Date.now() > first + DEMO_DAYS * 86400000) {
+      return res.json({ valid: false, reason: 'expired' });
+    }
+    return res.json({ valid: true });
   }
+  const bound = await store.getBinding(K);
+  if (bound && bound !== machineId) return res.json({ valid: false, reason: 'other-machine' });
   return res.json({ valid: true });
 }));
 

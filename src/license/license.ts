@@ -13,6 +13,8 @@ export interface LicensePayload {
   plan: string;
   issuedAt: number;
   recheckAfterDays: number;
+  /** Échéance (ms) pour les licences à durée limitée (démo/essai). */
+  expiresAt?: number;
 }
 
 export type LicenseState =
@@ -87,6 +89,8 @@ export async function checkStoredLicense(): Promise<LicenseState> {
   if (!payload) return { status: 'invalid' };
   if (payload.product !== LICENSE.PRODUCT) return { status: 'invalid' };
   if (payload.machineId !== getMachineId()) return { status: 'invalid' };
+  // Licence à durée limitée (démo) expirée
+  if (payload.expiresAt && Date.now() > payload.expiresAt) return { status: 'invalid' };
   return { status: 'ok', payload };
 }
 
