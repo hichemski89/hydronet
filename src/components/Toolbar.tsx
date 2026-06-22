@@ -8,7 +8,17 @@ import { generateReport } from '../report/reportGenerator';
 import { captureCanvasPng } from '../utils/svgCapture';
 import ContextMenu, { MenuItem } from './ContextMenu';
 import {
+  NewIcon,
   OpenIcon,
+  SaveIcon,
+  SaveAsIcon,
+  ClockIcon,
+  CatalogIcon,
+  CurveIcon,
+  PdfIcon,
+  BookIcon,
+  InfoIcon,
+  HelpIcon,
   UndoIcon,
   RedoIcon,
   GridIcon,
@@ -98,29 +108,31 @@ export default function Toolbar() {
     setMenu((m) => (m?.kind === kind ? null : { kind, x: r.left, y: r.bottom + 4 }));
   };
 
+  const ic = (Icon: typeof OpenIcon) => <Icon size={16} />;
+
   const fileMenuItems: MenuItem[] = [
-    { label: 'Nouveau', icon: '📄', onClick: onNew },
-    { label: 'Ouvrir…', icon: '📂', onClick: () => fileInput.current?.click() },
+    { label: 'Nouveau', icon: ic(NewIcon), onClick: onNew },
+    { label: 'Ouvrir…', icon: ic(OpenIcon), onClick: () => fileInput.current?.click() },
     { type: 'separator' },
-    { label: 'Enregistrer', icon: '💾', onClick: () => doSave(false) },
-    { label: 'Enregistrer sous…', icon: '🏷️', onClick: () => doSave(true) },
+    { label: 'Enregistrer', icon: ic(SaveIcon), onClick: () => doSave(false) },
+    { label: 'Enregistrer sous…', icon: ic(SaveAsIcon), onClick: () => doSave(true) },
     { type: 'separator' },
     { type: 'header', label: 'Fichiers récents' },
     ...(recents.length
       ? recents.map((r): MenuItem => ({
           label: r.name,
           sub: relTime(r.savedAt),
-          icon: '🕘',
+          icon: ic(ClockIcon),
           onClick: () => loadRecentProject(r.id),
         }))
       : [{ label: 'Aucun fichier récent', disabled: true } as MenuItem]),
   ];
 
   const libMenuItems: MenuItem[] = [
-    { label: 'Catalogue de conduites', sub: 'matériaux, DN, PN, épaisseurs', icon: '🛢', onClick: () => setCatalogDialogOpen(true) },
+    { label: 'Catalogue de conduites', sub: 'matériaux, DN, PN, épaisseurs', icon: ic(CatalogIcon), onClick: () => setCatalogDialogOpen(true) },
     { type: 'separator' },
-    { label: 'Courbes', sub: 'caractéristique, rendement, volume…', icon: '📈', onClick: () => setCurveDialogOpen(true) },
-    { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse)', icon: '⏱', onClick: () => setPatternDialogOpen(true) },
+    { label: 'Courbes', sub: 'caractéristique, rendement, volume…', icon: ic(CurveIcon), onClick: () => setCurveDialogOpen(true) },
+    { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse)', icon: ic(ClockIcon), onClick: () => setPatternDialogOpen(true) },
   ];
 
   const onRun = async () => {
@@ -175,15 +187,15 @@ export default function Toolbar() {
   };
 
   const exportMenuItems: MenuItem[] = [
-    { label: 'Rapport PDF', sub: results ? undefined : 'lancez d’abord une simulation', icon: '📄', disabled: busy || !results, onClick: onExportPdf },
+    { label: 'Rapport PDF', sub: results ? undefined : 'lancez d’abord une simulation', icon: ic(PdfIcon), disabled: busy || !results, onClick: onExportPdf },
     { type: 'separator' },
-    { label: 'EPANET (.inp)', icon: '📤', onClick: onExportInp },
-    { label: 'AutoCAD (.dxf)', icon: '📐', onClick: () => setDxfDialogOpen(true) },
+    { label: 'EPANET (.inp)', icon: ic(ExportIcon), onClick: onExportInp },
+    { label: 'AutoCAD (.dxf)', icon: ic(PlanIcon), onClick: () => setDxfDialogOpen(true) },
   ];
 
   const helpMenuItems: MenuItem[] = [
-    { label: 'Documentation', sub: 'guide d’utilisation', icon: '📖', onClick: () => setHelpOpen(true) },
-    { label: 'À propos / Licence', icon: 'ℹ️', onClick: () => setLicenseOpen(true) },
+    { label: 'Documentation', sub: 'guide d’utilisation', icon: ic(BookIcon), onClick: () => setHelpOpen(true) },
+    { label: 'À propos / Licence', icon: ic(InfoIcon), onClick: () => setLicenseOpen(true) },
   ];
 
   return (
@@ -262,7 +274,7 @@ export default function Toolbar() {
           onClick={openMenu('lib')}
           title="Catalogue de conduites, courbes et modulations"
         >
-          🛢 Catalogue &amp; courbes <span className="caret">▾</span>
+          <CatalogIcon size={16} /> Catalogue &amp; courbes <span className="caret">▾</span>
         </button>
 
         <span className="toolbar-sep-v" />
@@ -308,7 +320,7 @@ export default function Toolbar() {
           onClick={openMenu('help')}
           title="Documentation et À propos"
         >
-          ❓ Aide <span className="caret">▾</span>
+          <HelpIcon size={16} /> Aide <span className="caret">▾</span>
         </button>
       </div>
 

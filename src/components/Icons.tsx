@@ -180,6 +180,61 @@ export const FilterIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const SaveAsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6" />
+    <path d="M5 3h10l4 4v5" />
+    <path d="M8 3v5h7" />
+    <path d="M20.6 13.4a1.5 1.5 0 0 1 2.1 2.1L17.5 20.7l-2.8.7.7-2.8z" />
+  </Svg>
+);
+
+export const ClockIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.2V12l3.3 1.9" />
+  </Svg>
+);
+
+export const CatalogIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <ellipse cx="12" cy="6" rx="7" ry="2.6" />
+    <path d="M5 6v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6" />
+    <path d="M5 12v6c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6v-6" />
+  </Svg>
+);
+
+export const CurveIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 4v15a1 1 0 0 0 1 1h15" />
+    <path d="M5 16c4 0 4.5-9 9-9 2.2 0 3 4 5 4" />
+  </Svg>
+);
+
+export const BookIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 6.2C10.3 5 7.8 4.4 5.2 4.4c-.5 0-.9.4-.9.9v11.4c0 .5.4.9.9.9 2.6 0 5.1.6 6.8 1.8" />
+    <path d="M12 6.2c1.7-1.2 4.2-1.8 6.8-1.8.5 0 .9.4.9.9v11.4c0 .5-.4.9-.9.9-2.6 0-5.1.6-6.8 1.8" />
+    <path d="M12 6.2v13.1" />
+  </Svg>
+);
+
+export const InfoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 11v5" />
+    <circle cx="12" cy="8" r="0.7" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+export const HelpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.7-2.5 2-2.5 3.5" />
+    <circle cx="12" cy="17" r="0.7" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
 export const ZoomInIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="10.5" cy="10.5" r="6.5" />

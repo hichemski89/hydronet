@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 
 export interface MenuItem {
   type?: 'item' | 'separator' | 'header';
   label?: string;
   sub?: string;
-  icon?: string;
+  icon?: ReactNode;
   danger?: boolean;
   disabled?: boolean;
   onClick?: () => void;

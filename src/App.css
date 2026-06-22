@@ -1341,10 +1341,15 @@ body {
   background: #fef2f2;
 }
 .context-icon {
-  width: 16px;
-  text-align: center;
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: var(--muted);
   flex: 0 0 auto;
+}
+.context-item:hover .context-icon {
+  color: var(--brand);
 }
 .context-sep {
   height: 1px;
