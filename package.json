@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV=1 electron electron/main.cjs\"",
     "electron:preview": "npm run build && electron electron/main.cjs",
-    "app:dist": "npm run build && electron-builder --win"
+    "app:dist": "npm run build && electron-builder --win",
+    "doc": "node scripts/genDoc.mjs"
   },
   "dependencies": {
     "dxf-parser": "^1.1.2",
