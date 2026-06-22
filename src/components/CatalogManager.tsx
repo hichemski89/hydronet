@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNetworkStore } from '../store/networkStore';
 import {
   buildDiametersFromRows,
@@ -6,6 +6,9 @@ import {
   DEFAULT_MATERIALS,
   PipeMaterial,
 } from '../data/pipeCatalog';
+import { saveTextFile, readFileAsText } from '../engine/projectIO';
+
+const CATALOG_FORMAT = 'hydronet-catalog';
 
 interface Row {
   dn: number;
@@ -21,6 +24,8 @@ export default function CatalogManager() {
   const setOpen = useNetworkStore((s) => s.setCatalogDialogOpen);
   const catalog = useNetworkStore((s) => s.catalog);
   const setCatalog = useNetworkStore((s) => s.setCatalog);
+  const setNotice = useNetworkStore((s) => s.setNotice);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState<PipeMaterial[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -108,6 +113,32 @@ export default function CatalogManager() {
       },
     });
 
+  const onExportFile = async () => {
+    const data = JSON.stringify({ format: CATALOG_FORMAT, version: 1, materials: draft }, null, 2);
+    await saveTextFile(data, 'catalogue-conduites.hydrocat', {
+      mime: 'application/json',
+      description: 'Catalogue de conduites HydroNet',
+      ext: '.hydrocat',
+    });
+  };
+
+  const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await readFileAsText(file));
+      const mats: PipeMaterial[] = Array.isArray(parsed) ? parsed : parsed.materials;
+      if (!Array.isArray(mats) || !mats.length || !mats[0].diameters) {
+        throw new Error('Format de catalogue non reconnu.');
+      }
+      setDraft(mats);
+      setSelected(mats[0]?.id ?? null);
+    } catch (err) {
+      setNotice('Import du catalogue impossible : ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
   const tryClose = () => {
     if (dirty) {
       setConfirm({
@@ -145,9 +176,18 @@ export default function CatalogManager() {
               <button className="btn btn-sm btn-primary" style={{ width: '100%' }} onClick={addMaterial}>
                 + Nouveau matériau
               </button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-sm" style={{ flex: 1 }} onClick={onExportFile} title="Enregistrer le catalogue dans un fichier">
+                  ⭳ Exporter
+                </button>
+                <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => fileRef.current?.click()} title="Charger un catalogue depuis un fichier">
+                  ⭱ Importer
+                </button>
+              </div>
               <button className="btn btn-sm" style={{ width: '100%' }} onClick={doReset}>
                 ↺ Catalogue par défaut
               </button>
+              <input ref={fileRef} type="file" accept=".hydrocat,.json" onChange={onImportFile} style={{ display: 'none' }} />
             </div>
           </div>
 

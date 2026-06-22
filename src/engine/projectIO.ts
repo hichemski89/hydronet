@@ -70,6 +70,38 @@ function baseName(filename: string): string {
   return filename.replace(/\.[^.]+$/, '');
 }
 
+/**
+ * Enregistre un texte dans un fichier (boîte native « Enregistrer sous » si
+ * possible, sinon téléchargement). Renvoie true si enregistré, false si annulé.
+ */
+export async function saveTextFile(
+  text: string,
+  suggestedName: string,
+  opts: { mime?: string; description?: string; ext?: string } = {},
+): Promise<boolean> {
+  const mime = opts.mime ?? 'application/json';
+  const ext = opts.ext ?? '.json';
+  const picker = (
+    window as unknown as { showSaveFilePicker?: (o: unknown) => Promise<SaveHandle> }
+  ).showSaveFilePicker;
+  if (picker) {
+    try {
+      const handle = await picker({
+        suggestedName,
+        types: [{ description: opts.description ?? 'Fichier', accept: { [mime]: [ext] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return true;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return false;
+    }
+  }
+  triggerDownload(new Blob([text], { type: mime }), suggestedName);
+  return true;
+}
+
 /** Analyse le contenu d'un fichier projet .hydronet et renvoie le réseau. */
 export function parseProjectFile(text: string): Network {
   const data = JSON.parse(text) as Partial<ProjectFile>;
