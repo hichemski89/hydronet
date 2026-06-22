@@ -132,7 +132,7 @@ export default function Toolbar() {
     { label: 'Catalogue de conduites', sub: 'matériaux, DN, PN, épaisseurs', icon: ic(CatalogIcon), onClick: () => setCatalogDialogOpen(true) },
     { type: 'separator' },
     { label: 'Courbes', sub: 'caractéristique, rendement, volume…', icon: ic(CurveIcon), onClick: () => setCurveDialogOpen(true) },
-    { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse)', icon: ic(ClockIcon), onClick: () => setPatternDialogOpen(true) },
+    { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse de pompe)', icon: ic(ClockIcon), onClick: () => setPatternDialogOpen(true) },
   ];
 
   const onRun = async () => {
