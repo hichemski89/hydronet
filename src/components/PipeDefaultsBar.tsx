@@ -1,11 +1,5 @@
 import { useNetworkStore } from '../store/networkStore';
-import {
-  PIPE_MATERIALS,
-  getMaterial,
-  getDiameter,
-  getSize,
-  minBendRadiusMeters,
-} from '../data/pipeCatalog';
+import { getDiameter, getSize } from '../data/pipeCatalog';
 
 const ANGLE_PRESETS: { label: string; angles: number[] }[] = [
   { label: '90°', angles: [90] },
@@ -26,6 +20,8 @@ export default function PipeDefaultsBar() {
   const setDrawElbow = useNetworkStore((s) => s.setDrawElbow);
   const setPendingLastFitting = useNetworkStore((s) => s.setPendingLastFitting);
   const pendingLink = useNetworkStore((s) => s.pendingLink);
+  const catalog = useNetworkStore((s) => s.catalog);
+  const setCatalogDialogOpen = useNetworkStore((s) => s.setCatalogDialogOpen);
 
   if (tool !== 'pipe') return null;
 
@@ -36,10 +32,10 @@ export default function PipeDefaultsBar() {
     if (pendingLink && pendingLink.vertices.length > 0) setPendingLastFitting(!curve);
   };
 
-  const mat = getMaterial(dp.material);
+  const mat = catalog.find((m) => m.id === dp.material);
   const dia = mat ? getDiameter(mat, dp.dn) : undefined;
   const size = mat ? getSize(mat, dp.dn, dp.pn) : undefined;
-  const minR = minBendRadiusMeters(dp.material, dp.dn);
+  const minR = mat ? (mat.bendRadiusFactor * dp.dn) / 1000 : null;
   const presetIdx = ANGLE_PRESETS.findIndex((p) => p.angles.join(',') === snapAngles.join(','));
 
   const onDn = (dn: number) => {
@@ -57,9 +53,14 @@ export default function PipeDefaultsBar() {
         <span className="pdb-heading">Tube à dessiner</span>
         <div className="pdb-fields">
           <label className="pdb-field pdb-mat">
-            <span>Matériau</span>
+            <span>
+              Matériau
+              <button type="button" className="link-btn" onClick={() => setCatalogDialogOpen(true)}>
+                Gérer…
+              </button>
+            </span>
             <select value={dp.material} onChange={(e) => setDefaultPipe({ material: e.target.value })}>
-              {PIPE_MATERIALS.map((m) => (
+              {catalog.map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </select>

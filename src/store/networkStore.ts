@@ -20,7 +20,16 @@ import {
 import { sampleNetwork } from '../utils/sampleNetwork';
 import { Backdrop } from '../engine/dxfImport';
 import { linkModelLength } from '../utils/geometry';
-import { getMaterial, getSize, materialRoughness, minBendRadiusMeters } from '../data/pipeCatalog';
+import {
+  getMaterial,
+  getSize,
+  materialRoughness,
+  minBendRadiusMeters,
+  PipeMaterial,
+  PIPE_MATERIALS,
+  DEFAULT_MATERIALS,
+  setPipeMaterials,
+} from '../data/pipeCatalog';
 import {
   loadPersistedNetwork,
   savePersistedNetwork,
@@ -220,6 +229,13 @@ interface NetworkState {
   setLicenseOpen: (open: boolean) => void;
   helpOpen: boolean;
   setHelpOpen: (open: boolean) => void;
+  catalogDialogOpen: boolean;
+  setCatalogDialogOpen: (open: boolean) => void;
+  catalog: PipeMaterial[];
+  addMaterial: () => string;
+  updateMaterial: (id: string, patch: Partial<PipeMaterial>) => void;
+  deleteMaterial: (id: string) => void;
+  resetCatalog: () => void;
   patternDialogOpen: boolean;
   setPatternDialogOpen: (open: boolean) => void;
   addPattern: () => string;
@@ -404,6 +420,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   selectDialogOpen: false,
   licenseOpen: false,
   helpOpen: false,
+  catalogDialogOpen: false,
+  catalog: PIPE_MATERIALS,
   patternDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
@@ -855,6 +873,46 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setSelectDialogOpen: (selectDialogOpen) => set({ selectDialogOpen }),
   setLicenseOpen: (licenseOpen) => set({ licenseOpen }),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
+
+  setCatalogDialogOpen: (catalogDialogOpen) => set({ catalogDialogOpen }),
+  addMaterial: () => {
+    const s = get();
+    let i = 1;
+    while (s.catalog.some((m) => m.id === `mat-${i}`)) i++;
+    const id = `mat-${i}`;
+    const mat: PipeMaterial = {
+      id,
+      name: 'Nouveau matériau',
+      norm: '',
+      hwRoughness: 130,
+      dwRoughness: 0.01,
+      cmRoughness: 0.011,
+      bendRadiusFactor: 25,
+      diameters: [],
+    };
+    const catalog = [...s.catalog, mat];
+    setPipeMaterials(catalog);
+    set({ catalog });
+    return id;
+  },
+  updateMaterial: (id, patch) =>
+    set((s) => {
+      const catalog = s.catalog.map((m) => (m.id === id ? { ...m, ...patch } : m));
+      setPipeMaterials(catalog);
+      return { catalog };
+    }),
+  deleteMaterial: (id) =>
+    set((s) => {
+      if (s.catalog.length <= 1) return s; // garde au moins un matériau
+      const catalog = s.catalog.filter((m) => m.id !== id);
+      setPipeMaterials(catalog);
+      return { catalog };
+    }),
+  resetCatalog: () => {
+    const catalog = JSON.parse(JSON.stringify(DEFAULT_MATERIALS)) as PipeMaterial[];
+    setPipeMaterials(catalog);
+    set({ catalog });
+  },
   setPatternDialogOpen: (patternDialogOpen) => set({ patternDialogOpen }),
 
   addPattern: () => {

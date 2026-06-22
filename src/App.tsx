@@ -13,6 +13,7 @@ import BackdropPanel from './components/BackdropPanel';
 import DisplaySettingsDialog from './components/DisplaySettingsDialog';
 import CurveManager from './components/CurveManager';
 import PatternManager from './components/PatternManager';
+import CatalogManager from './components/CatalogManager';
 import DxfExportDialog from './components/DxfExportDialog';
 import SimSettingsDialog from './components/SimSettingsDialog';
 import SelectByFilterDialog from './components/SelectByFilterDialog';
@@ -51,6 +52,7 @@ export default function App() {
       <DisplaySettingsDialog />
       <CurveManager />
       <PatternManager />
+      <CatalogManager />
       <DxfExportDialog />
       <SimSettingsDialog />
       <SelectByFilterDialog />

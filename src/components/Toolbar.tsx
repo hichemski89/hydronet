@@ -45,6 +45,7 @@ export default function Toolbar() {
   const setBackdropPanelOpen = useNetworkStore((s) => s.setBackdropPanelOpen);
   const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
   const setPatternDialogOpen = useNetworkStore((s) => s.setPatternDialogOpen);
+  const setCatalogDialogOpen = useNetworkStore((s) => s.setCatalogDialogOpen);
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
   const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
   const setSelectDialogOpen = useNetworkStore((s) => s.setSelectDialogOpen);
@@ -115,6 +116,8 @@ export default function Toolbar() {
   ];
 
   const libMenuItems: MenuItem[] = [
+    { label: 'Catalogue de conduites', sub: 'matériaux, DN, PN, épaisseurs', icon: '🛢', onClick: () => setCatalogDialogOpen(true) },
+    { type: 'separator' },
     { label: 'Courbes', sub: 'caractéristique, rendement, volume…', icon: '📈', onClick: () => setCurveDialogOpen(true) },
     { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse)', icon: '⏱', onClick: () => setPatternDialogOpen(true) },
   ];
@@ -256,9 +259,9 @@ export default function Toolbar() {
         <button
           className={`btn btn-menu ${menu?.kind === 'lib' ? 'btn-menu-open' : ''}`}
           onClick={openMenu('lib')}
-          title="Courbes (caractéristique, rendement, volume) et courbes de modulation"
+          title="Catalogue de conduites, courbes et modulations"
         >
-          📈 Courbes &amp; modulations <span className="caret">▾</span>
+          🛢 Catalogue &amp; courbes <span className="caret">▾</span>
         </button>
 
         <span className="toolbar-sep-v" />

@@ -88,7 +88,65 @@ export const PEHD_PE100: PipeMaterial = {
   diameters: buildDiameters(),
 };
 
-export const PIPE_MATERIALS: PipeMaterial[] = [PEHD_PE100];
+/** Catalogue par défaut (livré avec le logiciel). */
+export const DEFAULT_MATERIALS: PipeMaterial[] = [PEHD_PE100];
+
+const CATALOG_KEY = 'hydronet:catalog:v1';
+
+function loadCatalog(): PipeMaterial[] {
+  try {
+    const raw = localStorage.getItem(CATALOG_KEY);
+    if (!raw) return clone(DEFAULT_MATERIALS);
+    const mats = JSON.parse(raw) as PipeMaterial[];
+    if (Array.isArray(mats) && mats.length && mats[0].diameters) return mats;
+  } catch {
+    /* ignore */
+  }
+  return clone(DEFAULT_MATERIALS);
+}
+
+function clone<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v));
+}
+
+/** Catalogue actif (modifiable). Binding vivant : les imports voient les mises à jour. */
+export let PIPE_MATERIALS: PipeMaterial[] = loadCatalog();
+
+/** Remplace et persiste le catalogue actif. */
+export function setPipeMaterials(materials: PipeMaterial[]): void {
+  PIPE_MATERIALS = materials;
+  try {
+    localStorage.setItem(CATALOG_KEY, JSON.stringify(materials));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Construit les diamètres (groupés par DN) à partir de lignes plates. */
+export function buildDiametersFromRows(
+  rows: { dn: number; pn: number; thickness: number }[],
+): CatalogDiameter[] {
+  const byDn = new Map<number, PipeSize[]>();
+  for (const r of rows) {
+    if (!r.dn || !r.thickness || r.thickness <= 0 || r.thickness * 2 >= r.dn) continue;
+    const sizes = byDn.get(r.dn) ?? [];
+    sizes.push({
+      pn: r.pn,
+      sdr: round1(r.dn / r.thickness),
+      thickness: r.thickness,
+      innerDiameter: round1(r.dn - 2 * r.thickness),
+    });
+    byDn.set(r.dn, sizes);
+  }
+  return [...byDn.keys()]
+    .sort((a, b) => a - b)
+    .map((dn) => ({ dn, sizes: byDn.get(dn)!.sort((a, b) => a.pn - b.pn) }));
+}
+
+/** Aplati les dimensions d'un matériau en lignes éditables. */
+export function materialRows(mat: PipeMaterial): { dn: number; pn: number; thickness: number }[] {
+  return mat.diameters.flatMap((d) => d.sizes.map((s) => ({ dn: d.dn, pn: s.pn, thickness: s.thickness })));
+}
 
 export function getMaterial(id: string | undefined): PipeMaterial | undefined {
   return PIPE_MATERIALS.find((m) => m.id === id);

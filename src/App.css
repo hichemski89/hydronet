@@ -318,6 +318,68 @@ body {
   margin: 4px 0 0;
 }
 
+/* Catalogue de conduites */
+.catalog-modal {
+  width: 880px;
+  max-width: 95vw;
+}
+.catalog-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px 14px;
+}
+.cat-sizes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 14px 0 6px;
+}
+.cat-table {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.cat-row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 1.1fr 0.8fr 1fr 32px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+}
+.cat-row-head {
+  background: var(--bg);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cat-rows {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.cat-rows .cat-row:nth-child(even) {
+  background: rgba(148, 163, 184, 0.06);
+}
+.cat-row input {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.cat-calc {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand);
+  text-align: center;
+}
+
 /* Documentation */
 .help-modal {
   width: 720px;
