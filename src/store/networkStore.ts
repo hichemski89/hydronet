@@ -1120,6 +1120,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       profilePath: [],
       past: [],
       future: [],
+      // réinitialise aussi le fond de plan et l'échelle (nouveau projet vierge)
+      backdrop: null,
+      metersPerUnit: 1,
+      backdropPanelOpen: false,
+      definingClip: false,
       fitRequest: s.fitRequest + 1,
     })),
 
