@@ -27,7 +27,6 @@ import {
   minBendRadiusMeters,
   PipeMaterial,
   PIPE_MATERIALS,
-  DEFAULT_MATERIALS,
   setPipeMaterials,
 } from '../data/pipeCatalog';
 import {
@@ -232,10 +231,7 @@ interface NetworkState {
   catalogDialogOpen: boolean;
   setCatalogDialogOpen: (open: boolean) => void;
   catalog: PipeMaterial[];
-  addMaterial: () => string;
-  updateMaterial: (id: string, patch: Partial<PipeMaterial>) => void;
-  deleteMaterial: (id: string) => void;
-  resetCatalog: () => void;
+  setCatalog: (materials: PipeMaterial[]) => void;
   patternDialogOpen: boolean;
   setPatternDialogOpen: (open: boolean) => void;
   addPattern: () => string;
@@ -875,43 +871,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setHelpOpen: (helpOpen) => set({ helpOpen }),
 
   setCatalogDialogOpen: (catalogDialogOpen) => set({ catalogDialogOpen }),
-  addMaterial: () => {
-    const s = get();
-    let i = 1;
-    while (s.catalog.some((m) => m.id === `mat-${i}`)) i++;
-    const id = `mat-${i}`;
-    const mat: PipeMaterial = {
-      id,
-      name: 'Nouveau matériau',
-      norm: '',
-      hwRoughness: 130,
-      dwRoughness: 0.01,
-      cmRoughness: 0.011,
-      bendRadiusFactor: 25,
-      diameters: [],
-    };
-    const catalog = [...s.catalog, mat];
-    setPipeMaterials(catalog);
-    set({ catalog });
-    return id;
-  },
-  updateMaterial: (id, patch) =>
-    set((s) => {
-      const catalog = s.catalog.map((m) => (m.id === id ? { ...m, ...patch } : m));
-      setPipeMaterials(catalog);
-      return { catalog };
-    }),
-  deleteMaterial: (id) =>
-    set((s) => {
-      if (s.catalog.length <= 1) return s; // garde au moins un matériau
-      const catalog = s.catalog.filter((m) => m.id !== id);
-      setPipeMaterials(catalog);
-      return { catalog };
-    }),
-  resetCatalog: () => {
-    const catalog = JSON.parse(JSON.stringify(DEFAULT_MATERIALS)) as PipeMaterial[];
-    setPipeMaterials(catalog);
-    set({ catalog });
+  setCatalog: (materials) => {
+    setPipeMaterials(materials);
+    set({ catalog: materials });
   },
   setPatternDialogOpen: (patternDialogOpen) => set({ patternDialogOpen }),
 
