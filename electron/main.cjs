@@ -11,6 +11,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+app.setName('HydroNet'); // nom affiché par les dialogues natifs (au lieu de "epa")
+
 const DEV = process.env.ELECTRON_DEV === '1';
 const DEV_URL = 'http://localhost:5173';
 const PROD_PORT = 51789; // port fixe -> origine stable -> localStorage conservé

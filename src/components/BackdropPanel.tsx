@@ -20,6 +20,7 @@ export default function BackdropPanel() {
   const requestFit = useNetworkStore((s) => s.requestFit);
   const setDefiningClip = useNetworkStore((s) => s.setDefiningClip);
   const setBackdropClip = useNetworkStore((s) => s.setBackdropClip);
+  const setNotice = useNetworkStore((s) => s.setNotice);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
@@ -32,7 +33,7 @@ export default function BackdropPanel() {
       const text = await readFileAsText(file);
       setBackdrop(parseDxf(text, file.name));
     } catch (err) {
-      alert('Import DXF impossible : ' + (err instanceof Error ? err.message : String(err)));
+      setNotice('Import DXF impossible : ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 

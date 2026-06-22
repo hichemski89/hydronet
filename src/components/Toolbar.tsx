@@ -46,6 +46,7 @@ export default function Toolbar() {
   const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
   const setPatternDialogOpen = useNetworkStore((s) => s.setPatternDialogOpen);
   const setCatalogDialogOpen = useNetworkStore((s) => s.setCatalogDialogOpen);
+  const setNotice = useNetworkStore((s) => s.setNotice);
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
   const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
   const setSelectDialogOpen = useNetworkStore((s) => s.setSelectDialogOpen);
@@ -75,7 +76,7 @@ export default function Toolbar() {
       loadNetwork(net);
       addRecent(net.meta.name || file.name.replace(/\.[^.]+$/, ''), net);
     } catch (err) {
-      alert('Impossible d’ouvrir le fichier : ' + (err instanceof Error ? err.message : String(err)));
+      setNotice('Impossible d’ouvrir le fichier : ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -126,7 +127,7 @@ export default function Toolbar() {
     const errors = validateNetwork(network);
     if (errors.length) {
       setSimStatus('error', errors.join('\n'));
-      alert('Impossible de lancer la simulation :\n\n' + errors.join('\n'));
+      setNotice('Impossible de lancer la simulation :\n\n' + errors.join('\n'));
       return;
     }
     setBusy(true);
@@ -138,7 +139,7 @@ export default function Toolbar() {
       else setSimStatus('done');
     } catch (err) {
       setSimStatus('error', err instanceof Error ? err.message : String(err));
-      alert('Erreur de simulation : ' + (err instanceof Error ? err.message : String(err)));
+      setNotice('Erreur de simulation : ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setBusy(false);
     }
@@ -146,7 +147,7 @@ export default function Toolbar() {
 
   const onExportPdf = async () => {
     if (!results) {
-      alert('Lancez d’abord une simulation.');
+      setNotice('Lancez d’abord une simulation.');
       return;
     }
     setBusy(true);

@@ -20,6 +20,7 @@ import SelectByFilterDialog from './components/SelectByFilterDialog';
 import LicenseGate from './components/LicenseGate';
 import ActivationGate from './components/ActivationGate';
 import HelpDialog from './components/HelpDialog';
+import NoticeDialog from './components/NoticeDialog';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -59,6 +60,7 @@ export default function App() {
       <LicenseGate />
       <ActivationGate />
       <HelpDialog />
+      <NoticeDialog />
     </div>
   );
 }

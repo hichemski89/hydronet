@@ -228,6 +228,9 @@ interface NetworkState {
   setLicenseOpen: (open: boolean) => void;
   helpOpen: boolean;
   setHelpOpen: (open: boolean) => void;
+  /** Message d'information/erreur affiché dans une fenêtre intégrée (ou null). */
+  notice: string | null;
+  setNotice: (msg: string | null) => void;
   catalogDialogOpen: boolean;
   setCatalogDialogOpen: (open: boolean) => void;
   catalog: PipeMaterial[];
@@ -418,6 +421,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   helpOpen: false,
   catalogDialogOpen: false,
   catalog: PIPE_MATERIALS,
+  notice: null,
   patternDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
   backdropPanelOpen: false,
@@ -869,6 +873,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setSelectDialogOpen: (selectDialogOpen) => set({ selectDialogOpen }),
   setLicenseOpen: (licenseOpen) => set({ licenseOpen }),
   setHelpOpen: (helpOpen) => set({ helpOpen }),
+  setNotice: (notice) => set({ notice }),
 
   setCatalogDialogOpen: (catalogDialogOpen) => set({ catalogDialogOpen }),
   setCatalog: (materials) => {
