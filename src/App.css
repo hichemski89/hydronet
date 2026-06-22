@@ -284,9 +284,9 @@ body {
 .license-overlay {
   z-index: 100;
 }
-.license-modal {
+.modal.license-modal {
   width: 640px;
-  max-width: 92vw;
+  max-width: calc(100vw - 24px);
 }
 .license-about {
   margin: 0 0 10px;
@@ -319,9 +319,9 @@ body {
 }
 
 /* Catalogue de conduites */
-.catalog-modal {
-  width: 880px;
-  max-width: 95vw;
+.modal.catalog-modal {
+  width: 920px;
+  max-width: calc(100vw - 24px);
 }
 .catalog-detail {
   display: flex;
@@ -330,7 +330,7 @@ body {
 }
 .cat-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px 14px;
 }
 .cat-sizes-head {
@@ -381,9 +381,9 @@ body {
 }
 
 /* Documentation */
-.help-modal {
+.modal.help-modal {
   width: 720px;
-  max-width: 94vw;
+  max-width: calc(100vw - 24px);
 }
 .help-body {
   max-height: 66vh;
