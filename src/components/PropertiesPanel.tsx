@@ -1,4 +1,5 @@
-import { useNetworkStore } from '../store/networkStore';
+import { useState, useEffect } from 'react';
+import { useNetworkStore, nameTaken } from '../store/networkStore';
 import {
   Junction,
   Reservoir,
@@ -51,24 +52,54 @@ function Field({
   );
 }
 
-function TextField({
-  label,
+/**
+ * Champ « Étiquette » avec validation d'unicité en ligne : si le nom saisi est
+ * déjà utilisé par un autre élément, le texte passe en rouge et un petit message
+ * rouge s'affiche sous le champ. Le nom n'est appliqué (à la perte de focus ou à
+ * la touche Entrée) que s'il est valide ; sinon le champ revient à l'ancien nom.
+ */
+function LabelField({
   value,
-  onChange,
+  selfId,
+  onCommit,
 }: {
-  label: string;
   value: string;
-  onChange: (v: string) => void;
+  selfId: string;
+  onCommit: (v: string) => void;
 }) {
+  const network = useNetworkStore((s) => s.network);
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+
+  const duplicate = text.trim() !== '' && nameTaken(network, text, selfId);
+  const commit = () => {
+    if (duplicate) {
+      setText(value); // nom refusé -> on restaure l'ancien
+      return;
+    }
+    if (text !== value) onCommit(text);
+  };
+
   return (
     <label className="field">
-      <span className="field-label">{label}</span>
+      <span className="field-label">Étiquette</span>
       <input
         type="text"
-        value={value}
+        value={text}
+        className={duplicate ? 'input-error' : ''}
+        style={duplicate ? { color: '#dc2626', borderColor: '#dc2626' } : undefined}
         onFocus={() => useNetworkStore.getState().commit()}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
       />
+      {duplicate && (
+        <span style={{ color: '#dc2626', fontSize: 11.5, marginTop: 3 }}>
+          Ce nom est déjà utilisé par un autre élément.
+        </span>
+      )}
     </label>
   );
 }
@@ -143,7 +174,7 @@ export default function PropertiesPanel() {
             Supprimer
           </button>
         </div>
-        <TextField label="Étiquette" value={node.label ?? ''} onChange={(v) => updateNode(node.id, { label: v })} />
+        <LabelField selfId={node.id} value={node.label ?? ''} onCommit={(v) => updateNode(node.id, { label: v })} />
 
         {node.type === 'junction' && (
           <>
@@ -188,6 +219,7 @@ export default function PropertiesPanel() {
       <div className="coords-hint">
         {link.node1} → {link.node2}
       </div>
+      <LabelField selfId={link.id} value={link.label ?? ''} onCommit={(v) => updateLink(link.id, { label: v })} />
 
       {link.type === 'pipe' && (
         <>

@@ -14,6 +14,7 @@ import DisplaySettingsDialog from './components/DisplaySettingsDialog';
 import CurveManager from './components/CurveManager';
 import PatternManager from './components/PatternManager';
 import CatalogManager from './components/CatalogManager';
+import NamingPrefixesDialog from './components/NamingPrefixesDialog';
 import DxfExportDialog from './components/DxfExportDialog';
 import SimSettingsDialog from './components/SimSettingsDialog';
 import SelectByFilterDialog from './components/SelectByFilterDialog';
@@ -54,6 +55,7 @@ export default function App() {
       <CurveManager />
       <PatternManager />
       <CatalogManager />
+      <NamingPrefixesDialog />
       <DxfExportDialog />
       <SimSettingsDialog />
       <SelectByFilterDialog />

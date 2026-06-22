@@ -17,7 +17,6 @@ import {
   DEFAULT_OPTIONS,
   DEFAULT_CRITERIA,
 } from '../types/network';
-import { sampleNetwork } from '../utils/sampleNetwork';
 import { Backdrop } from '../engine/dxfImport';
 import { linkModelLength } from '../utils/geometry';
 import {
@@ -38,7 +37,28 @@ import {
   savePersistedCad,
   loadRecents,
   saveRecents,
+  loadPersistedNaming,
+  savePersistedNaming,
 } from './persist';
+
+/** Préfixes de nommage automatique par type d'élément (ex. junction = 'N' -> N1, N2…). */
+export interface NamingPrefixes {
+  junction: string;
+  reservoir: string;
+  tank: string;
+  pipe: string;
+  pump: string;
+  valve: string;
+}
+
+export const DEFAULT_PREFIXES: NamingPrefixes = {
+  junction: 'J',
+  reservoir: 'R',
+  tank: 'T',
+  pipe: 'P',
+  pump: 'PU',
+  valve: 'V',
+};
 
 export interface RecentProject {
   id: string;
@@ -235,6 +255,10 @@ interface NetworkState {
   setCatalogDialogOpen: (open: boolean) => void;
   catalog: PipeMaterial[];
   setCatalog: (materials: PipeMaterial[]) => void;
+  prefixes: NamingPrefixes;
+  setPrefixes: (prefixes: NamingPrefixes) => void;
+  prefixDialogOpen: boolean;
+  setPrefixDialogOpen: (open: boolean) => void;
   patternDialogOpen: boolean;
   setPatternDialogOpen: (open: boolean) => void;
   addPattern: () => string;
@@ -298,16 +322,16 @@ function emptyNetwork(): Network {
   };
 }
 
-function defaultNode(type: NodeType, x: number, y: number, idNum: number): NetworkNode {
+function defaultNode(type: NodeType, x: number, y: number, id: string): NetworkNode {
   const base = { x, y };
   switch (type) {
     case 'junction':
-      return { id: `J${idNum}`, type, ...base, elevation: 0, baseDemand: 0 };
+      return { id, type, ...base, elevation: 0, baseDemand: 0 };
     case 'reservoir':
-      return { id: `R${idNum}`, type, ...base, head: 100 };
+      return { id, type, ...base, head: 100 };
     case 'tank':
       return {
-        id: `T${idNum}`,
+        id,
         type,
         ...base,
         elevation: 0,
@@ -324,12 +348,12 @@ function defaultLink(
   node1: string,
   node2: string,
   vertices: { x: number; y: number }[],
-  idNum: number,
+  id: string,
 ): NetworkLink {
   switch (type) {
     case 'pipe':
       return {
-        id: `P${idNum}`,
+        id,
         type,
         node1,
         node2,
@@ -342,7 +366,7 @@ function defaultLink(
       };
     case 'pump':
       return {
-        id: `PU${idNum}`,
+        id,
         type,
         node1,
         node2,
@@ -355,7 +379,7 @@ function defaultLink(
       };
     case 'valve':
       return {
-        id: `V${idNum}`,
+        id,
         type,
         node1,
         node2,
@@ -370,12 +394,58 @@ function defaultLink(
 
 const HISTORY_LIMIT = 50;
 
-let nodeCounter = 1000;
-let linkCounter = 1000;
+/**
+ * Renvoie le prochain identifiant pour un préfixe donné : `préfixe + (n+1)` où n
+ * est le plus grand numéro déjà utilisé par un nom de la forme « préfixe + chiffres ».
+ * On tient compte à la fois des identifiants ET des étiquettes (nœuds et liens
+ * confondus), afin de ne jamais générer un nom déjà porté par un élément renommé.
+ * Ex. préfixe « J » avec J1..J4 et un nœud renommé en étiquette « J5 » -> « J6 ».
+ */
+function nextIdForPrefix(net: Network, prefix: string): string {
+  const p = prefix.trim() || 'E';
+  const re = new RegExp(`^${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)$`);
+  let max = 0;
+  const consider = (name?: string) => {
+    if (!name) return;
+    const m = re.exec(name);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  };
+  for (const n of Object.values(net.nodes)) {
+    consider(n.id);
+    consider(n.label);
+  }
+  for (const l of Object.values(net.links)) {
+    consider(l.id);
+    consider(l.label);
+  }
+  return `${p}${max + 1}`;
+}
 
 /** Arrondit une valeur au pas de grille si le magnétisme est actif. */
 function snapValue(v: number, size: number, on: boolean): number {
   return on ? Math.round(v / size) * size : v;
+}
+
+/** Nom affiché d'un élément : son étiquette si renseignée, sinon son identifiant. */
+function displayName(el: { id: string; label?: string }): string {
+  return (el.label && el.label.trim()) || el.id;
+}
+
+/**
+ * Indique si le nom `name` est déjà utilisé par un autre élément du réseau
+ * (nœud ou lien), en excluant l'élément d'identifiant `selfId`. Comparaison
+ * insensible à la casse pour éviter les doublons trompeurs (N1 vs n1).
+ */
+export function nameTaken(net: Network, name: string, selfId: string): boolean {
+  const target = name.trim().toLowerCase();
+  if (!target) return false;
+  for (const n of Object.values(net.nodes)) {
+    if (n.id !== selfId && displayName(n).toLowerCase() === target) return true;
+  }
+  for (const l of Object.values(net.links)) {
+    if (l.id !== selfId && displayName(l).toLowerCase() === target) return true;
+  }
+  return false;
 }
 
 interface PersistedCad {
@@ -386,7 +456,7 @@ interface PersistedCad {
 const persistedCad = loadPersistedCad<PersistedCad>();
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
-  network: loadPersistedNetwork() ?? sampleNetwork(),
+  network: loadPersistedNetwork() ?? emptyNetwork(),
   tool: 'select',
   selection: null,
   selNodes: [],
@@ -421,6 +491,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   helpOpen: false,
   catalogDialogOpen: false,
   catalog: PIPE_MATERIALS,
+  prefixes: { ...DEFAULT_PREFIXES, ...(loadPersistedNaming<Partial<NamingPrefixes>>() ?? {}) },
+  prefixDialogOpen: false,
   notice: null,
   patternDialogOpen: false,
   backdrop: persistedCad?.backdrop?.layers ? persistedCad.backdrop : null,
@@ -491,7 +563,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     const s0 = get();
     const sx = snapValue(x, s0.gridSize, s0.snapToGrid);
     const sy = snapValue(y, s0.gridSize, s0.snapToGrid);
-    const node = defaultNode(type, sx, sy, ++nodeCounter);
+    const node = defaultNode(type, sx, sy, nextIdForPrefix(s0.network, s0.prefixes[type]));
     set((s) => {
       node.id = uniqueNodeId(s.network, node.id);
       return {
@@ -507,6 +579,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     set((s) => {
       const node = s.network.nodes[id];
       if (!node) return s;
+      // Refuse silencieusement un nom déjà pris (la validation visuelle est faite
+      // dans le champ Étiquette du panneau de propriétés).
+      if (patch.label !== undefined && patch.label.trim() && nameTaken(s.network, patch.label, id)) {
+        return s;
+      }
       const nodes = { ...s.network.nodes, [id]: { ...node, ...patch } as NetworkNode };
       let links = s.network.links;
       if (s.autoLength && (patch.x !== undefined || patch.y !== undefined)) {
@@ -578,7 +655,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     set((s) => {
       const p = s.pendingLink;
       if (!p || p.node1 === node2) return { pendingLink: null };
-      const link = defaultLink(p.type, p.node1, node2, p.vertices, ++linkCounter);
+      const link = defaultLink(p.type, p.node1, node2, p.vertices, nextIdForPrefix(s.network, s.prefixes[p.type]));
       link.id = uniqueLinkId(s.network, link.id);
       if (link.type === 'pipe') {
         const dp = s.defaultPipe;
@@ -619,6 +696,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     set((s) => {
       const link = s.network.links[id];
       if (!link) return s;
+      if (patch.label !== undefined && patch.label.trim() && nameTaken(s.network, patch.label, id)) {
+        return s;
+      }
       return {
         network: {
           ...s.network,
@@ -879,6 +959,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   setCatalog: (materials) => {
     setPipeMaterials(materials);
     set({ catalog: materials });
+  },
+  setPrefixDialogOpen: (prefixDialogOpen) => set({ prefixDialogOpen }),
+  setPrefixes: (prefixes) => {
+    savePersistedNaming(prefixes);
+    set({ prefixes });
   },
   setPatternDialogOpen: (patternDialogOpen) => set({ patternDialogOpen }),
 

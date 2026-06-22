@@ -734,7 +734,7 @@ export default function NetworkCanvas() {
         {/* Étiquette de lien */}
         {display.showLinkLabels && (
           <text x={midScreen.x + 6} y={midScreen.y - 6} fontSize={display.labelSize * 0.92} fill="#6b7280" style={{ userSelect: 'none' }}>
-            {link.id}
+            {link.label || link.id}
           </text>
         )}
         {/* Valeur du résultat sur la conduite */}
@@ -857,7 +857,7 @@ export default function NetworkCanvas() {
         )}
         {display.showNodeLabels && (
           <text x={p.x + NODE_R + 3} y={p.y - NODE_R} fontSize={display.labelSize} fill="#374151" style={{ userSelect: 'none' }}>
-            {node.id}
+            {node.label || node.id}
           </text>
         )}
         {resultText && display.showResultValues && (

@@ -78,6 +78,26 @@ export function savePersistedCad(data: unknown): void {
   }
 }
 
+const KEY_NAMING = 'hydronet:naming:v1';
+
+/** Préfixes de nommage des éléments persistés (ou null). */
+export function loadPersistedNaming<T>(): T | null {
+  try {
+    const raw = localStorage.getItem(KEY_NAMING);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function savePersistedNaming(data: unknown): void {
+  try {
+    localStorage.setItem(KEY_NAMING, JSON.stringify(data));
+  } catch {
+    /* ignoré */
+  }
+}
+
 const KEY_RECENTS = 'hydronet:recents:v1';
 
 export function loadRecents<T>(): T[] {

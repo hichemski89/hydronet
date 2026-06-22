@@ -56,6 +56,7 @@ export default function Toolbar() {
   const setCurveDialogOpen = useNetworkStore((s) => s.setCurveDialogOpen);
   const setPatternDialogOpen = useNetworkStore((s) => s.setPatternDialogOpen);
   const setCatalogDialogOpen = useNetworkStore((s) => s.setCatalogDialogOpen);
+  const setPrefixDialogOpen = useNetworkStore((s) => s.setPrefixDialogOpen);
   const setNotice = useNetworkStore((s) => s.setNotice);
   const setDxfDialogOpen = useNetworkStore((s) => s.setDxfDialogOpen);
   const setSimSettingsOpen = useNetworkStore((s) => s.setSimSettingsOpen);
@@ -133,6 +134,8 @@ export default function Toolbar() {
     { type: 'separator' },
     { label: 'Courbes', sub: 'caractéristique, rendement, volume…', icon: ic(CurveIcon), onClick: () => setCurveDialogOpen(true) },
     { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse de pompe)', icon: ic(ClockIcon), onClick: () => setPatternDialogOpen(true) },
+    { type: 'separator' },
+    { label: 'Préfixes de nommage', sub: 'ex. N → N1, N2, N3…', icon: ic(SettingsIcon), onClick: () => setPrefixDialogOpen(true) },
   ];
 
   const onRun = async () => {
