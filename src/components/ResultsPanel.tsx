@@ -148,16 +148,25 @@ function ChartBlock({
   colors: string[];
   activeLabel?: string;
 }) {
+  // Format compact des graduations de l'axe Y : évite des libellés trop longs
+  // (et donc tronqués) tout en restant lisible pour les valeurs négatives.
+  const fmtTick = (v: number) => {
+    if (v == null || !isFinite(v)) return '';
+    const a = Math.abs(v);
+    return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
+  };
   return (
     <div className="chart-block">
       <div className="chart-title">{title}</div>
       <ResponsiveContainer width="100%" height={140}>
-        <LineChart data={data} margin={{ top: 6, right: 10, bottom: 0, left: -18 }}>
+        <LineChart data={data} margin={{ top: 6, right: 12, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis dataKey="t" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
-          <YAxis tick={{ fontSize: 9 }} width={40} />
+          <YAxis tick={{ fontSize: 9 }} width={48} tickFormatter={fmtTick} />
           <Tooltip contentStyle={{ fontSize: 11 }} />
           {activeLabel && <ReferenceLine x={activeLabel} stroke="#1d4ed8" strokeDasharray="4 2" />}
+          {/* Repère du zéro : utile quand le débit change de sens (valeurs négatives) */}
+          <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1} />
           {keys.map((k, i) => (
             <Line key={k} type="monotone" dataKey={k} stroke={colors[i]} dot={false} strokeWidth={2} isAnimationActive={false} />
           ))}
@@ -225,19 +234,28 @@ function ComplianceSummary() {
 
 function SummaryStats() {
   const results = useNetworkStore((s) => s.results)!;
+  const network = useNetworkStore((s) => s.network);
   const timeIndex = useNetworkStore((s) => s.currentTimeIndex);
   const presU = results.pressureUnit;
   const lenU = results.lengthUnit;
 
-  const pressures = Object.values(results.nodes)
-    .map((n) => n.pressure[timeIndex])
+  // Pression : uniquement aux nœuds de demande (jonctions). Les bâches et
+  // réservoirs sont à charge imposée — leur « pression » (souvent 0) fausserait
+  // le minimum recherché par l'utilisateur.
+  const pressures = Object.entries(results.nodes)
+    .filter(([id]) => network.nodes[id]?.type === 'junction')
+    .map(([, n]) => n.pressure[timeIndex])
     .filter((v) => isFinite(v));
-  const velocities = Object.values(results.links)
-    .map((l) => l.velocity[timeIndex])
+  // Vitesse : uniquement dans les conduites (les pompes ont une vitesse nulle,
+  // ce qui fausserait le minimum).
+  const velocities = Object.entries(results.links)
+    .filter(([id]) => network.links[id]?.type === 'pipe')
+    .map(([, l]) => l.velocity[timeIndex])
     .filter((v) => isFinite(v));
 
   const minP = pressures.length ? Math.min(...pressures) : NaN;
   const maxP = pressures.length ? Math.max(...pressures) : NaN;
+  const minV = velocities.length ? Math.min(...velocities) : NaN;
   const maxV = velocities.length ? Math.max(...velocities) : NaN;
 
   return (
@@ -249,6 +267,10 @@ function SummaryStats() {
       <div className="stat-card">
         <div className="stat-value">{fmt(maxP, 1)}</div>
         <div className="stat-label">Pression max ({presU})</div>
+      </div>
+      <div className="stat-card">
+        <div className="stat-value">{fmt(minV, 2)}</div>
+        <div className="stat-label">Vitesse min ({lenU}/s)</div>
       </div>
       <div className="stat-card">
         <div className="stat-value">{fmt(maxV, 2)}</div>

@@ -38,6 +38,8 @@ export default function NetworkCanvas() {
   const selNodes = useNetworkStore((s) => s.selNodes);
   const selLinks = useNetworkStore((s) => s.selLinks);
   const setMultiSelection = useNetworkStore((s) => s.setMultiSelection);
+  const addToSelection = useNetworkStore((s) => s.addToSelection);
+  const toggleInSelection = useNetworkStore((s) => s.toggleInSelection);
   const clearMultiSelection = useNetworkStore((s) => s.clearMultiSelection);
   const deleteMultiSelection = useNetworkStore((s) => s.deleteMultiSelection);
   const moveNodesBy = useNetworkStore((s) => s.moveNodesBy);
@@ -73,6 +75,7 @@ export default function NetworkCanvas() {
   const removeLastPendingVertex = useNetworkStore((s) => s.removeLastPendingVertex);
   const deleteSelection = useNetworkStore((s) => s.deleteSelection);
   const commit = useNetworkStore((s) => s.commit);
+  const cancelEdit = useNetworkStore((s) => s.cancelEdit);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const duplicateSelection = useNetworkStore((s) => s.duplicateSelection);
@@ -99,6 +102,8 @@ export default function NetworkCanvas() {
     targetId?: string;
     vertexIndex?: number;
     radiusCorner?: number;
+    /** Offset (modèle) entre le point saisi et le centre du nœud, pour un déplacement sans saut. */
+    grabOffset?: Pt;
     moved: boolean;
   }>({ mode: 'none', startScreen: { x: 0, y: 0 }, lastScreen: { x: 0, y: 0 }, lastModel: { x: 0, y: 0 }, moved: false });
 
@@ -293,6 +298,11 @@ export default function NetworkCanvas() {
           it.lastModel = screenToModel(sp.x, sp.y);
         } else {
           it.mode = 'dragNode';
+          // Mémorise l'écart entre le point saisi et le centre du nœud (déplacement
+          // sans saut) et la position d'origine (snap relatif + annulation Échap).
+          const nd = network.nodes[it.nodeId];
+          const grab = screenToModel(it.startScreen.x, it.startScreen.y);
+          it.grabOffset = nd ? { x: grab.x - nd.x, y: grab.y - nd.y } : { x: 0, y: 0 };
         }
         commit(); // un seul point d'annulation pour tout le déplacement
       } else {
@@ -312,8 +322,12 @@ export default function NetworkCanvas() {
       it.moved = true;
     } else if (it.mode === 'dragNode' && it.nodeId) {
       const mp = screenToModel(sp.x, sp.y);
-      const nx = snapToGrid ? Math.round(mp.x / gridSize) * gridSize : mp.x;
-      const ny = snapToGrid ? Math.round(mp.y / gridSize) * gridSize : mp.y;
+      // Retire l'offset de saisie : le centre du nœud suit le curseur de manière relative.
+      const px = mp.x - (it.grabOffset?.x ?? 0);
+      const py = mp.y - (it.grabOffset?.y ?? 0);
+      // Magnétisme : accrochage sur la grille (chaque carreau visible = une cellule).
+      const nx = snapToGrid ? Math.round(px / gridSize) * gridSize : px;
+      const ny = snapToGrid ? Math.round(py / gridSize) * gridSize : py;
       updateNode(it.nodeId, { x: nx, y: ny });
       it.lastScreen = sp;
     } else if (it.mode === 'dragGroup') {
@@ -381,7 +395,9 @@ export default function NetworkCanvas() {
       for (const lk of Object.values(network.links)) {
         if (nodeSet.has(lk.node1) && nodeSet.has(lk.node2)) links.push(lk.id);
       }
-      setMultiSelection(nodes, links);
+      // Ctrl maintenu : on ajoute à la sélection existante (sinon on remplace).
+      if (e.ctrlKey || e.metaKey) addToSelection(nodes, links);
+      else setMultiSelection(nodes, links);
       setMarquee(null);
     } else if (it.mode === 'maybe' && !it.moved) {
       handleClick(it.targetKind, it.targetId, e);
@@ -446,8 +462,14 @@ export default function NetworkCanvas() {
     }
 
     // Outil sélection
-    if (targetKind && targetId) select({ kind: targetKind, id: targetId });
-    else select(null);
+    if (targetKind && targetId) {
+      // Ctrl+clic : ajoute / retire l'élément de la sélection multiple.
+      if (e.ctrlKey || e.metaKey) toggleInSelection(targetKind, targetId);
+      else select({ kind: targetKind, id: targetId });
+    } else if (!(e.ctrlKey || e.metaKey)) {
+      // Clic dans le vide sans Ctrl : désélectionne (avec Ctrl on conserve).
+      select(null);
+    }
   };
 
   // Index d'insertion (dans le tableau des sommets) du segment le plus proche du clic
@@ -631,8 +653,24 @@ export default function NetworkCanvas() {
       }
       if (typing) return;
       if (e.key === 'Escape') {
+        const it = interaction.current;
+        // 1) Annule un déplacement / une édition en cours (nœud, groupe, sommet, rayon)
+        if (
+          it.mode === 'dragNode' ||
+          it.mode === 'dragGroup' ||
+          it.mode === 'dragVertex' ||
+          it.mode === 'dragRadius'
+        ) {
+          cancelEdit(); // restaure la position d'avant le déplacement
+          it.mode = 'none';
+          it.moved = false;
+          setMarquee(null);
+          return;
+        }
+        // 2) Sinon : annule le tracé en cours, les sélections et les modes spéciaux
         cancelPendingLink();
         clearMultiSelection();
+        select(null); // annule aussi la sélection simple
         if (useNetworkStore.getState().definingClip) setDefiningClip(false);
         if (useNetworkStore.getState().editingVertexLink) setEditingVertexLink(null);
         // revient toujours sur l'outil Sélection
@@ -646,7 +684,7 @@ export default function NetworkCanvas() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, setDefiningClip, setEditingVertexLink, setTool, undo, redo, duplicateSelection]);
+  }, [cancelPendingLink, deleteSelection, deleteMultiSelection, clearMultiSelection, select, cancelEdit, setDefiningClip, setEditingVertexLink, setTool, undo, redo, duplicateSelection]);
 
   // --- Rendu ---
   const renderLink = (linkId: string) => {
@@ -704,8 +742,12 @@ export default function NetworkCanvas() {
       }
       if (display.showLinkValues) {
         const metric = colorMode === 'compliance' ? 'velocity' : isNodeMetric(linkMetric) ? 'flow' : linkMetric;
-        const v = linkValue(results, linkId, metric, timeIndex);
-        if (v != null && isFinite(v)) linkText = v.toFixed(2);
+        // La vitesse n'a aucun sens pour une pompe (pas de section) -> ne rien
+        // afficher au lieu d'un « 0.00 » trompeur.
+        if (!(metric === 'velocity' && link.type === 'pump')) {
+          const v = linkValue(results, linkId, metric, timeIndex);
+          if (v != null && isFinite(v)) linkText = v.toFixed(2);
+        }
       }
     }
     const isSel = (selection?.kind === 'link' && selection.id === linkId) || selLinks.includes(linkId);
@@ -723,10 +765,14 @@ export default function NetworkCanvas() {
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        {/* Flèche de sens d'écoulement (seulement si écoulement réel, pas du bruit) */}
-        {results && showOverlay && display.showFlowArrows && flowVal != null &&
-          (velAbs >= VEL_EPS || (link.type !== 'pipe' && Math.abs(flowVal) > 1e-3)) && (
+        {/* Conduites / vannes : flèche selon le réglage global (si écoulement réel) */}
+        {results && showOverlay && display.showFlowArrows && link.type !== 'pump' && flowVal != null &&
+          (velAbs >= VEL_EPS || (link.type === 'valve' && Math.abs(flowVal) > 1e-3)) && (
           <FlowArrow pts={pts} reversed={flowVal < 0} size={display.arrowSize} />
+        )}
+        {/* Pompe en marche : flèche de sens toujours affichée, décalée du symbole P */}
+        {results && showOverlay && link.type === 'pump' && flowVal != null && Math.abs(flowVal) > 1e-3 && (
+          <FlowArrow pts={pts} reversed={flowVal < 0} size={display.arrowSize} offset={15} />
         )}
         {/* Symbole de pompe / vanne */}
         {link.type === 'pump' && <LinkSymbol type="pump" at={midScreen} selected={isSel} />}
@@ -1025,6 +1071,30 @@ export default function NetworkCanvas() {
         style={{ touchAction: 'none', cursor: definingClip ? 'crosshair' : undefined }}
       >
         <rect x={0} y={0} width={size.w} height={size.h} fill="transparent" />
+        {/* Grille en espace-monde : suit le plan (pan/zoom) et sa maille = le pas
+            de magnétisme, donc chaque carreau correspond à une cellule d'accrochage. */}
+        {display.showGrid && gridSize * view.scale >= 6 && (
+          <g style={{ pointerEvents: 'none' }}>
+            <defs>
+              <pattern
+                id="world-grid"
+                patternUnits="userSpaceOnUse"
+                width={gridSize * view.scale}
+                height={gridSize * view.scale}
+                x={view.offsetX}
+                y={view.offsetY}
+              >
+                <path
+                  d={`M ${gridSize * view.scale} 0 L 0 0 0 ${gridSize * view.scale}`}
+                  fill="none"
+                  stroke="rgba(148, 163, 184, 0.35)"
+                  strokeWidth={1}
+                />
+              </pattern>
+            </defs>
+            <rect x={0} y={0} width={size.w} height={size.h} fill="url(#world-grid)" />
+          </g>
+        )}
         {backdrop && backdrop.visible && (
           <g
             transform={`translate(${view.offsetX} ${view.offsetY}) scale(${view.scale} ${-view.scale})`}
@@ -1118,15 +1188,16 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
-function FlowArrow({ pts, reversed, size = 6 }: { pts: Pt[]; reversed: boolean; size?: number }) {
-  // Flèche au milieu du segment central
+function FlowArrow({ pts, reversed, size = 6, offset = 0 }: { pts: Pt[]; reversed: boolean; size?: number; offset?: number }) {
+  // Flèche au milieu du segment central (décalée de `offset` px dans le sens
+  // de l'écoulement, p. ex. pour ne pas recouvrir le symbole d'une pompe).
   const i = Math.max(1, Math.floor(pts.length / 2));
   const p0 = pts[i - 1];
   const p1 = pts[i];
-  const mx = (p0.x + p1.x) / 2;
-  const my = (p0.y + p1.y) / 2;
   let ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
   if (reversed) ang += Math.PI;
+  const mx = (p0.x + p1.x) / 2 + Math.cos(ang) * offset;
+  const my = (p0.y + p1.y) / 2 + Math.sin(ang) * offset;
   const s = size;
   const tip = { x: mx + Math.cos(ang) * s, y: my + Math.sin(ang) * s };
   const left = { x: mx + Math.cos(ang + 2.4) * s, y: my + Math.sin(ang + 2.4) * s };

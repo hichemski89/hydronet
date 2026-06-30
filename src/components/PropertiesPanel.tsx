@@ -104,6 +104,275 @@ function LabelField({
   );
 }
 
+/** Champ numérique de modification groupée : vide si les valeurs diffèrent. */
+function BulkNum({
+  label,
+  unit,
+  step = 1,
+  values,
+  apply,
+}: {
+  label: string;
+  unit?: string;
+  step?: number;
+  values: number[];
+  apply: (v: number) => void;
+}) {
+  const allSame = values.length > 0 && values.every((v) => v === values[0]);
+  const common = allSame ? String(values[0]) : '';
+  const [text, setText] = useState(common);
+  useEffect(() => setText(common), [common]);
+  const commit = () => {
+    const v = parseFloat(text);
+    if (text.trim() !== '' && Number.isFinite(v)) apply(v);
+  };
+  return (
+    <label className="field">
+      <span className="field-label">
+        {label} {unit && <em>({unit})</em>}
+      </span>
+      <input
+        type="number"
+        step={step}
+        value={text}
+        placeholder={allSame ? undefined : 'valeurs multiples'}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+      />
+    </label>
+  );
+}
+
+/**
+ * Choix du diamètre via le catalogue (Matériau → DN → PN) pour une sélection
+ * multiple de conduites : le choix s'applique à toutes les conduites à la fois.
+ */
+function BulkPipeCatalog({ pipes }: { pipes: Pipe[] }) {
+  const bulkUpdateLinks = useNetworkStore((s) => s.bulkUpdateLinks);
+  const formula = useNetworkStore((s) => s.network.options.headlossFormula);
+  const ids = pipes.map((p) => p.id);
+
+  const allSameMat = pipes.every((p) => p.material === pipes[0].material);
+  const matId = allSameMat ? pipes[0].material : undefined;
+  const material = matId ? getMaterial(matId) : undefined;
+
+  const allSameDn = pipes.every((p) => p.dn === pipes[0].dn);
+  const curDn = allSameDn ? pipes[0].dn : undefined;
+  const allSamePn = pipes.every((p) => p.pn === pipes[0].pn);
+  const curPn = allSamePn ? pipes[0].pn : undefined;
+
+  const applyMaterial = (id: string) => {
+    if (!id) {
+      bulkUpdateLinks(ids, { material: undefined, dn: undefined, pn: undefined });
+      return;
+    }
+    const mat = getMaterial(id);
+    if (!mat) return;
+    const useDn = curDn && getDiameter(mat, curDn) ? curDn : 110;
+    const d = getDiameter(mat, useDn) ?? mat.diameters[0];
+    const size = getSize(mat, d.dn, curPn ?? 16) ?? d.sizes[Math.floor(d.sizes.length / 2)];
+    bulkUpdateLinks(ids, {
+      material: id,
+      dn: d.dn,
+      pn: size.pn,
+      diameter: size.innerDiameter,
+      roughness: materialRoughness(mat, formula),
+    });
+  };
+
+  const applyDn = (dn: number) => {
+    if (!material) return;
+    const d = getDiameter(material, dn);
+    if (!d) return;
+    const size = getSize(material, dn, curPn ?? 16) ?? d.sizes[Math.floor(d.sizes.length / 2)];
+    bulkUpdateLinks(ids, { dn, pn: size.pn, diameter: size.innerDiameter });
+  };
+
+  const applyPn = (pn: number) => {
+    if (!material || !curDn) return;
+    const size = getSize(material, curDn, pn);
+    if (!size) return;
+    bulkUpdateLinks(ids, { pn, diameter: size.innerDiameter });
+  };
+
+  const MaterialSelect = (
+    <label className="field">
+      <span className="field-label">Tube (bibliothèque)</span>
+      <select
+        value={allSameMat ? matId ?? '' : '__mixed__'}
+        onChange={(e) => applyMaterial(e.target.value === '__mixed__' ? '' : e.target.value)}
+      >
+        {!allSameMat && <option value="__mixed__" disabled>matériaux différents</option>}
+        <option value="">Personnalisé (saisie libre)</option>
+        {PIPE_MATERIALS.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  // Matériaux différents : on propose seulement d'homogénéiser via le matériau.
+  if (!allSameMat) {
+    return (
+      <>
+        {MaterialSelect}
+        <div className="catalog-info">Choisissez un matériau pour homogénéiser le diamètre des conduites.</div>
+      </>
+    );
+  }
+
+  // Tous « personnalisés » : saisie libre du diamètre intérieur.
+  if (!material) {
+    return (
+      <>
+        {MaterialSelect}
+        <BulkNum
+          label="Diamètre intérieur"
+          unit="mm"
+          values={pipes.map((p) => p.diameter)}
+          apply={(v) => bulkUpdateLinks(ids, { diameter: v })}
+        />
+      </>
+    );
+  }
+
+  const dia = curDn ? getDiameter(material, curDn) : undefined;
+  const size = curDn && curPn ? getSize(material, curDn, curPn) : undefined;
+
+  return (
+    <>
+      {MaterialSelect}
+      <div className="catalog-row">
+        <label className="field">
+          <span className="field-label">DN extérieur</span>
+          <select value={allSameDn ? curDn ?? '' : '__mixed__'} onChange={(e) => applyDn(Number(e.target.value))}>
+            {!allSameDn && <option value="__mixed__" disabled>DN différents</option>}
+            {material.diameters.map((d) => (
+              <option key={d.dn} value={d.dn}>
+                {d.dn} mm
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Pression</span>
+          <select value={allSamePn ? curPn ?? '' : '__mixed__'} onChange={(e) => applyPn(Number(e.target.value))}>
+            {!allSamePn && <option value="__mixed__" disabled>PN différents</option>}
+            {dia?.sizes.map((s) => (
+              <option key={s.pn} value={s.pn}>
+                PN{s.pn} (SDR {s.sdr})
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {size && (
+        <div className="catalog-info">
+          Épaisseur {size.thickness} mm · <strong>Ø intérieur {size.innerDiameter} mm</strong>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Panneau de modification d'une sélection multiple (filtre ou graphique). */
+function MultiSelectionPanel() {
+  const network = useNetworkStore((s) => s.network);
+  const selNodes = useNetworkStore((s) => s.selNodes);
+  const selLinks = useNetworkStore((s) => s.selLinks);
+  const bulkUpdateNodes = useNetworkStore((s) => s.bulkUpdateNodes);
+  const bulkUpdateLinks = useNetworkStore((s) => s.bulkUpdateLinks);
+  const deleteMultiSelection = useNetworkStore((s) => s.deleteMultiSelection);
+  const clearMultiSelection = useNetworkStore((s) => s.clearMultiSelection);
+
+  const flowU = flowUnitLabel(network.options.flowUnits);
+  const lenU = network.options.flowUnits === 'GPM' || network.options.flowUnits === 'CFS' ? 'ft' : 'm';
+
+  const nodes = selNodes.map((id) => network.nodes[id]).filter(Boolean);
+  const junctions = nodes.filter((n) => n.type === 'junction') as Junction[];
+  const links = selLinks.map((id) => network.links[id]).filter(Boolean);
+  const pipes = links.filter((l) => l.type === 'pipe') as Pipe[];
+
+  const junctionIds = junctions.map((n) => n.id);
+  const pipeIds = pipes.map((l) => l.id);
+
+  const statusAllSame = pipes.length > 0 && pipes.every((p) => p.status === pipes[0].status);
+
+  return (
+    <div className="props">
+      <h3 className="props-title">Sélection multiple</h3>
+      <p className="hint" style={{ marginTop: 0 }}>
+        {selNodes.length} nœud(s) et {selLinks.length} lien(s) sélectionnés.
+        <br />
+        Ctrl+clic pour ajouter/retirer un élément. Les valeurs saisies ci-dessous
+        s’appliquent à <strong>tous</strong> les éléments concernés.
+      </p>
+
+      {junctions.length > 0 && (
+        <>
+          <div className="set-section">Nœuds — jonctions ({junctions.length})</div>
+          <BulkNum
+            label="Cote / Altitude"
+            unit={lenU}
+            values={junctions.map((n) => n.elevation)}
+            apply={(v) => bulkUpdateNodes(junctionIds, { elevation: v })}
+          />
+          <BulkNum
+            label="Demande de base"
+            unit={flowU}
+            step={0.1}
+            values={junctions.map((n) => n.baseDemand)}
+            apply={(v) => bulkUpdateNodes(junctionIds, { baseDemand: v })}
+          />
+          <PatternSelect
+            value={junctions.every((n) => n.pattern === junctions[0].pattern) ? junctions[0].pattern : undefined}
+            onChange={(p) => bulkUpdateNodes(junctionIds, { pattern: p })}
+          />
+        </>
+      )}
+
+      {pipes.length > 0 && (
+        <>
+          <div className="set-section">Conduites ({pipes.length})</div>
+          <BulkPipeCatalog pipes={pipes} />
+          <BulkNum
+            label="Rugosité"
+            values={pipes.map((p) => p.roughness)}
+            apply={(v) => bulkUpdateLinks(pipeIds, { roughness: v })}
+          />
+          <label className="field">
+            <span className="field-label">État</span>
+            <select
+              value={statusAllSame ? pipes[0].status : ''}
+              onChange={(e) => e.target.value && bulkUpdateLinks(pipeIds, { status: e.target.value as LinkStatus })}
+            >
+              {!statusAllSame && <option value="" disabled>valeurs multiples</option>}
+              <option value="OPEN">Ouvert</option>
+              <option value="CLOSED">Fermé</option>
+              <option value="CV">Clapet anti-retour</option>
+            </select>
+          </label>
+        </>
+      )}
+
+      <div className="sidebar-divider" style={{ margin: '12px 0' }} />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-sm" onClick={clearMultiSelection}>
+          Désélectionner
+        </button>
+        <button className="btn btn-sm btn-danger" onClick={deleteMultiSelection}>
+          Supprimer la sélection
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PropertiesPanel() {
   const network = useNetworkStore((s) => s.network);
   const selection = useNetworkStore((s) => s.selection);
@@ -113,30 +382,11 @@ export default function PropertiesPanel() {
   const deleteSelection = useNetworkStore((s) => s.deleteSelection);
   const selNodes = useNetworkStore((s) => s.selNodes);
   const selLinks = useNetworkStore((s) => s.selLinks);
-  const deleteMultiSelection = useNetworkStore((s) => s.deleteMultiSelection);
-  const clearMultiSelection = useNetworkStore((s) => s.clearMultiSelection);
   const flowU = flowUnitLabel(network.options.flowUnits);
   const lenU = network.options.flowUnits === 'GPM' || network.options.flowUnits === 'CFS' ? 'ft' : 'm';
 
   if (!selection && (selNodes.length > 0 || selLinks.length > 0)) {
-    return (
-      <div className="props">
-        <h3 className="props-title">Sélection multiple</h3>
-        <p className="hint">
-          {selNodes.length} nœud(s) et {selLinks.length} conduite(s)/lien(s) sélectionnés.
-          <br />
-          Glissez un élément sélectionné pour tout déplacer, ou supprimez l’ensemble.
-        </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-sm" onClick={clearMultiSelection}>
-            Désélectionner
-          </button>
-          <button className="btn btn-sm btn-danger" onClick={deleteMultiSelection}>
-            Supprimer la sélection
-          </button>
-        </div>
-      </div>
-    );
+    return <MultiSelectionPanel />;
   }
 
   if (!selection) {

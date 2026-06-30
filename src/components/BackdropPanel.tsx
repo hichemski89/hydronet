@@ -89,10 +89,7 @@ export default function BackdropPanel() {
             <div className="bp-actions">
               <button
                 className="btn btn-sm"
-                onClick={() => {
-                  setDefiningClip(true);
-                  setOpen(false);
-                }}
+                onClick={() => setDefiningClip(true)}
                 title="Tracer un rectangle pour ne garder que cette zone à l’écran"
               >
                 ▭ Cadre d’affichage

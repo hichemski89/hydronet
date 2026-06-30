@@ -1,10 +1,7 @@
-// Logique d'activation côté client : identifiant de poste, vérification de la
-// signature Ed25519, stockage local, activation et re-vérification en ligne.
+// Logique d'activation côté client : identifiant de poste (hardware via IPC),
+// vérification de la signature Ed25519, stockage chiffré via safeStorage Electron.
 import { LICENSE } from './config';
-
-const TOKEN_KEY = 'hydronet:license:v1';
-const MACHINE_KEY = 'hydronet:machine:v1';
-const LASTCHECK_KEY = 'hydronet:license:lastcheck:v1';
+import type {} from '../types/electron';
 
 export interface LicensePayload {
   product: string;
@@ -13,6 +10,8 @@ export interface LicensePayload {
   plan: string;
   issuedAt: number;
   recheckAfterDays: number;
+  /** Adresse e-mail du titulaire de la licence (inscrite à l'activation). */
+  email?: string;
   /** Échéance (ms) pour les licences à durée limitée (démo/essai). */
   expiresAt?: number;
 }
@@ -22,15 +21,50 @@ export type LicenseState =
   | { status: 'none' }
   | { status: 'invalid' };
 
-/** Identifiant de poste persistant (créé une fois, stocké localement). */
-export function getMachineId(): string {
-  let id = localStorage.getItem(MACHINE_KEY);
+// ---------- Couche de stockage : IPC Electron ou localStorage (dev web) ----------
+
+const api = window.electronLicense;
+
+async function storageGet(key: string): Promise<string | null> {
+  if (api) {
+    if (key === 'token')     return api.getToken();
+    if (key === 'lastcheck') return api.getLastCheck();
+    return null;
+  }
+  return localStorage.getItem(`hydronet:license:${key}:v1`);
+}
+
+async function storageSet(key: string, value: string): Promise<void> {
+  if (api) {
+    if (key === 'token')     { await api.setToken(value); return; }
+    if (key === 'lastcheck') { await api.setLastCheck(value); return; }
+    return;
+  }
+  localStorage.setItem(`hydronet:license:${key}:v1`, value);
+}
+
+async function storageDel(key: string): Promise<void> {
+  if (api) {
+    if (key === 'token') { await api.clearToken(); return; }
+    return;
+  }
+  localStorage.removeItem(`hydronet:license:${key}:v1`);
+}
+
+/** Identifiant machine : hardware via IPC (Electron) ou UUID persistant (dev). */
+export async function getMachineId(): Promise<string> {
+  if (api) return api.getMachineId();
+  // Repli pour le dev navigateur uniquement
+  const KEY = 'hydronet:machine:v1';
+  let id = localStorage.getItem(KEY);
   if (!id) {
     id = (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).replace(/-/g, '').slice(0, 24);
-    localStorage.setItem(MACHINE_KEY, id);
+    localStorage.setItem(KEY, id);
   }
   return id;
 }
+
+// ---------- Cryptographie ----------
 
 function b64urlToBytes(s: string): Uint8Array {
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4);
@@ -67,11 +101,11 @@ export async function verifyToken(token: string): Promise<LicensePayload | null>
     const [p, s] = token.split('.');
     if (!p || !s) return null;
     const data = b64urlToBytes(p);
-    const sig = b64urlToBytes(s);
-    const ok = await crypto.subtle.verify(
+    const sig  = b64urlToBytes(s);
+    const ok   = await crypto.subtle.verify(
       'Ed25519',
       await getPublicKey(),
-      sig as unknown as BufferSource,
+      sig  as unknown as BufferSource,
       data as unknown as BufferSource,
     );
     if (!ok) return null;
@@ -83,31 +117,48 @@ export async function verifyToken(token: string): Promise<LicensePayload | null>
 
 /** Évalue la licence stockée (signature + produit + poste). */
 export async function checkStoredLicense(): Promise<LicenseState> {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const token = await storageGet('token');
   if (!token) return { status: 'none' };
+
   const payload = await verifyToken(token);
   if (!payload) return { status: 'invalid' };
   if (payload.product !== LICENSE.PRODUCT) return { status: 'invalid' };
-  if (payload.machineId !== getMachineId()) return { status: 'invalid' };
-  // Licence à durée limitée (démo) expirée
+
+  const machineId = await getMachineId();
+  if (payload.machineId !== machineId) return { status: 'invalid' };
+
+  // Détection de manipulation de l'horloge système (horloge avant la délivrance)
+  if (Date.now() < payload.issuedAt - 300_000) return { status: 'invalid' };
+
+  // Licence à durée limitée expirée
   if (payload.expiresAt && Date.now() > payload.expiresAt) return { status: 'invalid' };
+
   return { status: 'ok', payload };
 }
 
 /** Active une clé auprès du serveur ; stocke le jeton signé en cas de succès. */
-export async function activate(key: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function activate(
+  key: string,
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
+    const machineId = await getMachineId();
     const res = await fetch(`${LICENSE.SERVER_URL}/activate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product: LICENSE.PRODUCT, key: key.trim(), machineId: getMachineId() }),
+      body: JSON.stringify({
+        product: LICENSE.PRODUCT,
+        key: key.trim(),
+        email: email.trim().toLowerCase(),
+        machineId,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data.error || `Erreur serveur (${res.status}).` };
     const payload = await verifyToken(data.token);
     if (!payload) return { ok: false, error: 'Réponse de licence invalide (signature).' };
-    localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(LASTCHECK_KEY, String(Date.now()));
+    await storageSet('token', data.token);
+    await storageSet('lastcheck', String(Date.now()));
     return { ok: true };
   } catch {
     return { ok: false, error: 'Serveur de licences injoignable. Vérifiez votre connexion.' };
@@ -119,9 +170,10 @@ export async function activate(key: string): Promise<{ ok: true } | { ok: false;
  * Renvoie false uniquement si le serveur confirme que la licence n'est plus valide.
  */
 export async function revalidateIfDue(payload: LicensePayload): Promise<boolean> {
-  const last = Number(localStorage.getItem(LASTCHECK_KEY) || payload.issuedAt);
-  const dueMs = (payload.recheckAfterDays || LICENSE.RECHECK_DAYS) * 86400000;
-  if (Date.now() - last < dueMs) return true; // pas encore l'heure
+  const lastRaw = await storageGet('lastcheck');
+  const last    = Number(lastRaw || payload.issuedAt);
+  const dueMs   = (payload.recheckAfterDays || LICENSE.RECHECK_DAYS) * 86_400_000;
+  if (Date.now() - last < dueMs) return true;
   try {
     const res = await fetch(`${LICENSE.SERVER_URL}/validate`, {
       method: 'POST',
@@ -130,19 +182,26 @@ export async function revalidateIfDue(payload: LicensePayload): Promise<boolean>
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.valid === false) {
-      localStorage.removeItem(TOKEN_KEY); // révoquée
+      await storageDel('token');
       return false;
     }
-    localStorage.setItem(LASTCHECK_KEY, String(Date.now()));
+    await storageSet('lastcheck', String(Date.now()));
     return true;
   } catch {
-    // hors-ligne : on tolère dans la limite de la grâce
-    const graceMs = LICENSE.OFFLINE_GRACE_DAYS * 86400000;
+    // Hors-ligne : tolérance dans la limite de la grâce
+    const graceMs = LICENSE.OFFLINE_GRACE_DAYS * 86_400_000;
     return Date.now() - last < dueMs + graceMs;
   }
 }
 
-export function clearLicense(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(LASTCHECK_KEY);
+/** Renvoie la charge utile de la licence stockée (titulaire, clé…), ou null. */
+export async function getLicenseInfo(): Promise<LicensePayload | null> {
+  const token = await storageGet('token');
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+export async function clearLicense(): Promise<void> {
+  await storageDel('token');
+  await storageDel('lastcheck');
 }

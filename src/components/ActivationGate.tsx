@@ -17,8 +17,17 @@ type Phase = 'checking' | 'activated' | 'need-key';
 export default function ActivationGate() {
   const [phase, setPhase] = useState<Phase>(LICENSE.ENABLED ? 'checking' : 'activated');
   const [key, setKey] = useState('');
+  const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [machineIdHint, setMachineIdHint] = useState('');
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canActivate = !!key.trim() && emailValid && !busy && phase !== 'checking';
+
+  useEffect(() => {
+    getMachineId().then((id) => setMachineIdHint(id.slice(0, 8)));
+  }, []);
 
   useEffect(() => {
     if (!LICENSE.ENABLED) return;
@@ -42,10 +51,10 @@ export default function ActivationGate() {
   if (!LICENSE.ENABLED || phase === 'activated') return null;
 
   const onActivate = async () => {
-    if (!key.trim() || busy) return;
+    if (!canActivate) return;
     setBusy(true);
     setError('');
-    const res = await activate(key);
+    const res = await activate(key, email);
     setBusy(false);
     if (res.ok) setPhase('activated');
     else setError(res.error);
@@ -63,7 +72,8 @@ export default function ActivationGate() {
           ) : (
             <>
               <p className="license-about">
-                Saisissez votre clé de licence pour activer {PRODUCT}. La clé est liée à ce poste.
+                Saisissez votre clé de licence et votre adresse e-mail pour activer {PRODUCT}.
+                La clé est liée à ce poste et à votre adresse e-mail.
               </p>
               <label className="field">
                 <span className="field-label">Clé de licence</span>
@@ -77,9 +87,19 @@ export default function ActivationGate() {
                   style={{ textTransform: 'uppercase' }}
                 />
               </label>
+              <label className="field">
+                <span className="field-label">Adresse e-mail</span>
+                <input
+                  type="email"
+                  placeholder="vous@exemple.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && onActivate()}
+                />
+              </label>
               {error && <p className="license-error">{error}</p>}
               <p className="hint" style={{ marginBottom: 0 }}>
-                Identifiant du poste : <code>{getMachineId().slice(0, 8)}…</code> · version {APP_VERSION}
+                Identifiant du poste : <code>{machineIdHint || '…'}…</code> · version {APP_VERSION}
               </p>
             </>
           )}
@@ -89,7 +109,7 @@ export default function ActivationGate() {
           <button
             className="btn btn-primary"
             onClick={onActivate}
-            disabled={busy || phase === 'checking' || !key.trim()}
+            disabled={!canActivate}
           >
             {busy ? 'Activation…' : 'Activer'}
           </button>

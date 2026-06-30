@@ -22,6 +22,8 @@ import LicenseGate from './components/LicenseGate';
 import ActivationGate from './components/ActivationGate';
 import HelpDialog from './components/HelpDialog';
 import NoticeDialog from './components/NoticeDialog';
+import DraggableWindows from './components/DraggableWindows';
+import CloseConfirmDialog from './components/CloseConfirmDialog';
 import { useNetworkStore } from './store/networkStore';
 import './App.css';
 
@@ -63,6 +65,8 @@ export default function App() {
       <ActivationGate />
       <HelpDialog />
       <NoticeDialog />
+      <CloseConfirmDialog />
+      <DraggableWindows />
     </div>
   );
 }

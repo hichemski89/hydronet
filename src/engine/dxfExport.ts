@@ -308,13 +308,44 @@ export function buildDxf(
     ly -= rowH;
   }
 
-  // --- Tableaux des résultats (à droite du réseau) ---
+  // --- Tableaux (à droite du réseau) ---
+  const lenU = results?.lengthUnit ?? 'm';
+  const tx = maxX + sym * 8;
+  let ty = maxY;
+
+  // Récapitulatif des longueurs de conduites par diamètre (métré)
+  const byDiam = new Map<string, { mat: string; dn: number; count: number; length: number }>();
+  for (const lk of Object.values(network.links)) {
+    if (lk.type !== 'pipe') continue;
+    const matName = lk.material ? getMaterial(lk.material)?.name ?? lk.material : '-';
+    const dn = lk.dn ?? 0;
+    const key = `${lk.material ?? ''}|${dn}`;
+    const e = byDiam.get(key) ?? { mat: matName, dn, count: 0, length: 0 };
+    e.count += 1;
+    e.length += lk.length || 0;
+    byDiam.set(key, e);
+  }
+  if (byDiam.size) {
+    const diamRows = [...byDiam.values()]
+      .sort((a, b) => a.dn - b.dn || a.mat.localeCompare(b.mat))
+      .map((e) => [e.mat, e.dn ? String(e.dn) : '-', String(e.count), e.length.toFixed(1)]);
+    const totLen = [...byDiam.values()].reduce((s, e) => s + e.length, 0);
+    const totCount = [...byDiam.values()].reduce((s, e) => s + e.count, 0);
+    diamRows.push(['TOTAL', '', String(totCount), totLen.toFixed(1)]);
+    ty = drawTable(
+      tx,
+      ty,
+      'LONGUEURS PAR DIAMETRE',
+      ['Materiau', 'DN(mm)', 'Nb', `Long.(${lenU})`],
+      diamRows,
+    );
+    ty -= rowH * 2;
+  }
+
+  // Tableaux des résultats de simulation
   if (results) {
     const flowU = flowUnitLabel(results.flowUnits);
-    const lenU = results.lengthUnit;
     const presU = results.pressureUnit;
-    const tx = maxX + sym * 8;
-    let ty = maxY;
 
     const nodeRows = Object.values(network.nodes).map((nd) => {
       const r = results.nodes[nd.id];
@@ -340,12 +371,15 @@ export function buildDxf(
     const linkRows = Object.values(network.links).map((lk) => {
       const r = results.links[lk.id];
       const len = lk.type === 'pipe' ? fmt(lk.length) : '-';
-      const diam = lk.type === 'pump' ? '-' : fmt((lk as { diameter?: number }).diameter);
+      const dn = (lk as { dn?: number }).dn;
+      const dnStr = lk.type === 'pump' || !dn ? '-' : String(dn);
+      const dint = lk.type === 'pump' ? '-' : fmt((lk as { diameter?: number }).diameter);
       return [
         lk.id,
         linkTypeLabel(lk.type),
+        dnStr,
         len,
-        diam,
+        dint,
         fmt(r?.flow[timeIndex]),
         fmt(r?.velocity[timeIndex]),
         fmt(r?.headloss[timeIndex]),
@@ -355,7 +389,7 @@ export function buildDxf(
       tx,
       ty,
       'RESULTATS CONDUITES',
-      ['ID', 'Type', `Long(${lenU})`, 'Diam(mm)', `Debit(${flowU})`, `Vitesse(${lenU}/s)`, `Perte(${lenU})`],
+      ['ID', 'Type', 'DN(mm)', `Long(${lenU})`, 'Dint(mm)', `Debit(${flowU})`, `Vitesse(${lenU}/s)`, `Perte(${lenU})`],
       linkRows,
     );
   }

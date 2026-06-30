@@ -80,6 +80,17 @@ body {
   cursor: default;
   user-select: none;
 }
+/* Point « modifications non enregistrées » à côté du nom du projet */
+.dirty-dot {
+  color: #f59e0b;
+  font-size: 11px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+/* Bouton Enregistrer mis en évidence quand il y a des modifications */
+.btn-save-dirty {
+  color: #d97706;
+}
 
 .toolbar-group {
   display: flex;
@@ -231,13 +242,8 @@ body {
   position: relative;
   min-height: 0;
   background: #f8fafc;
-  background-image:
-    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-.map-viewport.no-grid {
-  background-image: none;
+  /* La grille est désormais dessinée en espace-monde dans le canvas (elle suit
+     le plan et correspond au pas de magnétisme). Plus de grille CSS statique. */
 }
 .network-canvas {
   width: 100%;
@@ -687,7 +693,7 @@ body {
   position: absolute;
   top: 14px;
   right: 14px;
-  width: 248px;
+  width: 300px;
   max-height: calc(100% - 28px);
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid var(--border);
@@ -704,10 +710,14 @@ body {
   align-items: center;
   padding: 9px 12px;
   border-bottom: 1px solid var(--border);
+  cursor: move;
+  touch-action: none;
+  user-select: none;
 }
 .bp-body {
   padding: 11px 12px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 .bp-name {
   font-size: 12.5px;
@@ -749,6 +759,10 @@ body {
 }
 .bp-actions .btn {
   flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bp-layers-head {
   display: flex;
@@ -786,6 +800,8 @@ body {
   background: var(--bg);
 }
 .bp-layer-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -794,52 +810,52 @@ body {
 /* ---------- Pipe defaults bar ---------- */
 .pipe-defaults-bar {
   position: absolute;
-  top: 14px;
+  top: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: stretch;
-  gap: 14px;
+  gap: 12px;
   background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
-  padding: 10px 16px;
+  border-radius: 11px;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.13);
+  padding: 6px 14px;
   z-index: 16;
 }
 .pdb-section {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 6px;
+  gap: 3px;
 }
 .pdb-heading {
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   color: var(--brand);
 }
 .pdb-fields {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-end;
 }
 .pdb-field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 .pdb-field > span {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--muted);
   font-weight: 600;
 }
 .pdb-field select {
   border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 6px 8px;
-  font-size: 14px;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
   background: #fff;
   color: var(--text);
   cursor: pointer;
@@ -856,18 +872,18 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   background: #f0f9ff;
   border: 1px solid #bae6fd;
-  border-radius: 9px;
-  padding: 7px 12px;
-  font-size: 13px;
+  border-radius: 8px;
+  padding: 5px 11px;
+  font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
 }
 .pdb-chip strong {
   color: var(--brand);
-  font-size: 14px;
+  font-size: 13px;
 }
 .pdb-divider {
   width: 1px;
@@ -877,7 +893,7 @@ body {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -1020,6 +1036,9 @@ body {
   align-items: center;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
+  cursor: move;
+  touch-action: none;
+  user-select: none;
 }
 .modal-header h3 {
   margin: 0;
@@ -1807,7 +1826,7 @@ body {
 }
 .summary-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 .stat-card {

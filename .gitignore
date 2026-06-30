@@ -13,6 +13,10 @@ dist-ssr
 release
 *.local
 
+# Secrets serveur de licences — ne jamais versionner
+.env
+license-server/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -26,3 +30,6 @@ release
 
 # Manuel généré
 *.pdf
+
+# Généré par gen-integrity.mjs après build — ne pas versionner
+electron/integrity.cjs

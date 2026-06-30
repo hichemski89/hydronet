@@ -53,7 +53,17 @@ function Slider({
   );
 }
 
-const BG_PRESETS = ['#f8fafc', '#ffffff', '#eef2f7', '#0f172a', '#f0fdf4', '#fef9c3'];
+// Palette de fonds étudiée pour un canevas technique : teintes nettement
+// distinctes (chaud → froid → clair → sombre), confortables sur de longues
+// sessions et offrant un bon contraste avec les conduites et nœuds colorés.
+const BG_PRESETS: { hex: string; name: string }[] = [
+  { hex: '#ffffff', name: 'Blanc' },         // net, idéal pour l'impression
+  { hex: '#f4f1ea', name: 'Papier' },        // blanc cassé chaud, anti-éblouissement
+  { hex: '#e6ecf2', name: 'Gris bleuté' },   // neutre froid, type plan technique
+  { hex: '#d6e6f5', name: 'Bleu clair' },    // teinte hydraulique légère
+  { hex: '#1e293b', name: 'Ardoise' },       // sombre, faible luminosité
+  { hex: '#0b2545', name: 'Bleu nuit' },     // bleu d'épure (blueprint)
+];
 
 function ColorRow({
   label,
@@ -68,13 +78,13 @@ function ColorRow({
     <div className="disp-color">
       <span>{label}</span>
       <div className="disp-color-controls">
-        {BG_PRESETS.map((c) => (
+        {BG_PRESETS.map((p) => (
           <button
-            key={c}
-            className={`color-swatch ${value.toLowerCase() === c ? 'active' : ''}`}
-            style={{ background: c }}
-            onClick={() => onChange(c)}
-            title={c}
+            key={p.hex}
+            className={`color-swatch ${value.toLowerCase() === p.hex ? 'active' : ''}`}
+            style={{ background: p.hex }}
+            onClick={() => onChange(p.hex)}
+            title={`${p.name} (${p.hex})`}
           />
         ))}
         <input type="color" value={value} onChange={(e) => onChange(e.target.value)} title="Couleur personnalisée" />

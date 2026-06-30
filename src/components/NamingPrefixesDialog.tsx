@@ -38,7 +38,7 @@ export default function NamingPrefixesDialog() {
   const set = (key: keyof NamingPrefixes, v: string) =>
     setDraft((d) => ({ ...d, [key]: v }));
 
-  // Un préfixe vide n'est pas accepté (on retombe sinon sur un nommage ambigu).
+  // Un préfixe vide n'est pas accepté (nommage ambigu).
   const empty = FIELDS.some((f) => !draft[f.key].trim());
 
   const save = () => {

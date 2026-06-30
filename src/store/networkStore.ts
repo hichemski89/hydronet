@@ -125,7 +125,7 @@ export const DEFAULT_DISPLAY: DisplaySettings = {
   nodeSize: 8,
   linkWidth: 3,
   widthByDiameter: false,
-  backgroundColor: '#f8fafc',
+  backgroundColor: '#ffffff',
   labelSize: 12,
   arrowSize: 6,
   smoothPipes: true,
@@ -149,6 +149,8 @@ interface PendingLink {
 
 interface NetworkState {
   network: Network;
+  /** Référence du réseau au dernier enregistrement/ouverture : dirty = network !== savedRef. */
+  savedRef: Network;
   tool: Tool;
   selection: Selection | null;
   /** Multi-sélection (sélection rectangulaire). */
@@ -203,8 +205,12 @@ interface NetworkState {
   setView: (view: Partial<ViewTransform>) => void;
   select: (sel: Selection | null) => void;
   setMultiSelection: (nodes: string[], links: string[]) => void;
+  addToSelection: (nodes: string[], links: string[]) => void;
+  toggleInSelection: (kind: 'node' | 'link', id: string) => void;
   clearMultiSelection: () => void;
   deleteMultiSelection: () => void;
+  bulkUpdateNodes: (ids: string[], patch: Partial<NetworkNode>) => void;
+  bulkUpdateLinks: (ids: string[], patch: Partial<NetworkLink>) => void;
   moveNodesBy: (ids: string[], dx: number, dy: number) => void;
   addNode: (type: NodeType, x: number, y: number) => string;
   updateNode: (id: string, patch: Partial<NetworkNode>) => void;
@@ -280,6 +286,8 @@ interface NetworkState {
   clearProfile: () => void;
   /** Enregistre l'état courant dans l'historique (avant une modification). */
   commit: () => void;
+  /** Annule l'édition en cours : restaure le dernier état committé et le retire de l'historique. */
+  cancelEdit: () => void;
   undo: () => void;
   redo: () => void;
   toggleSnap: () => void;
@@ -299,6 +307,8 @@ interface NetworkState {
   recomputeLengths: () => void;
   loadNetwork: (network: Network) => void;
   newNetwork: () => void;
+  /** Marque l'état courant comme enregistré (réinitialise « dirty »). */
+  markSaved: () => void;
   recents: RecentProject[];
   addRecent: (name: string, network: Network) => void;
   loadRecentProject: (id: string) => void;
@@ -455,8 +465,13 @@ interface PersistedCad {
 }
 const persistedCad = loadPersistedCad<PersistedCad>();
 
+// Réseau initial : même référence pour `network` et `savedRef` (donc non « dirty »
+// au démarrage — l'auto-sauvegarde restaurée n'est pas considérée modifiée).
+const initialNetwork = loadPersistedNetwork() ?? emptyNetwork();
+
 export const useNetworkStore = create<NetworkState>((set, get) => ({
-  network: loadPersistedNetwork() ?? emptyNetwork(),
+  network: initialNetwork,
+  savedRef: initialNetwork,
   tool: 'select',
   selection: null,
   selNodes: [],
@@ -476,7 +491,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   past: [],
   future: [],
   snapToGrid: false,
-  gridSize: 20,
+  gridSize: 10,
   defaultPipe: { material: 'pehd-pe100', dn: 110, pn: 16 },
   angleSnap: false,
   snapAngles: [22.5, 45, 90],
@@ -507,6 +522,34 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   select: (selection) => set({ selection, selNodes: [], selLinks: [] }),
 
   setMultiSelection: (selNodes, selLinks) => set({ selNodes, selLinks, selection: null }),
+
+  // Ajoute des éléments à la sélection multiple en intégrant la sélection simple
+  // courante (utilisé par la sélection rectangle additive avec Ctrl).
+  addToSelection: (nodes, links) =>
+    set((s) => {
+      const sn = new Set(s.selNodes);
+      const sl = new Set(s.selLinks);
+      if (s.selection?.kind === 'node') sn.add(s.selection.id);
+      if (s.selection?.kind === 'link') sl.add(s.selection.id);
+      nodes.forEach((id) => sn.add(id));
+      links.forEach((id) => sl.add(id));
+      return { selNodes: [...sn], selLinks: [...sl], selection: null };
+    }),
+
+  // Ajoute / retire un élément de la sélection (Ctrl+clic). La sélection simple
+  // courante est d'abord convertie en sélection multiple.
+  toggleInSelection: (kind, id) =>
+    set((s) => {
+      const sn = new Set(s.selNodes);
+      const sl = new Set(s.selLinks);
+      if (s.selection?.kind === 'node') sn.add(s.selection.id);
+      if (s.selection?.kind === 'link') sl.add(s.selection.id);
+      const set2 = kind === 'node' ? sn : sl;
+      if (set2.has(id)) set2.delete(id);
+      else set2.add(id);
+      return { selNodes: [...sn], selLinks: [...sl], selection: null };
+    }),
+
   clearMultiSelection: () => set({ selNodes: [], selLinks: [] }),
 
   deleteMultiSelection: () => {
@@ -531,6 +574,32 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         selection: null,
         results: null,
       };
+    });
+  },
+
+  // Applique un même patch à tous les nœuds dont l'id est fourni (modif. groupée).
+  bulkUpdateNodes: (ids, patch) => {
+    if (ids.length === 0) return;
+    get().commit();
+    set((s) => {
+      const nodes = { ...s.network.nodes };
+      for (const id of ids) {
+        if (nodes[id]) nodes[id] = { ...nodes[id], ...patch } as NetworkNode;
+      }
+      return { network: { ...s.network, nodes }, results: null };
+    });
+  },
+
+  // Applique un même patch à tous les liens dont l'id est fourni (modif. groupée).
+  bulkUpdateLinks: (ids, patch) => {
+    if (ids.length === 0) return;
+    get().commit();
+    set((s) => {
+      const links = { ...s.network.links };
+      for (const id of ids) {
+        if (links[id]) links[id] = { ...links[id], ...patch } as NetworkLink;
+      }
+      return { network: { ...s.network, links }, results: null };
     });
   },
 
@@ -1137,6 +1206,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   commit: () =>
     set((s) => ({ past: [...s.past, s.network].slice(-HISTORY_LIMIT), future: [] })),
 
+  cancelEdit: () =>
+    set((s) => {
+      if (!s.past.length) return s;
+      const previous = s.past[s.past.length - 1];
+      return { network: previous, past: s.past.slice(0, -1) };
+    }),
+
   undo: () =>
     set((s) => {
       if (!s.past.length) return s;
@@ -1186,6 +1262,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   loadNetwork: (network) =>
     set((s) => ({
       network,
+      savedRef: network, // projet ouvert : état de référence (non modifié)
       results: null,
       selection: null,
       selNodes: [],
@@ -1199,8 +1276,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       fitRequest: s.fitRequest + 1,
     })),
   newNetwork: () =>
-    set((s) => ({
-      network: emptyNetwork(),
+    set((s) => {
+      const net = emptyNetwork();
+      return {
+      network: net,
+      savedRef: net, // nouveau projet vierge : état de référence (non modifié)
       results: null,
       selection: null,
       selNodes: [],
@@ -1213,10 +1293,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       // réinitialise aussi le fond de plan et l'échelle (nouveau projet vierge)
       backdrop: null,
       metersPerUnit: 1,
+      autoLength: false,
       backdropPanelOpen: false,
       definingClip: false,
       fitRequest: s.fitRequest + 1,
-    })),
+      };
+    }),
 
   recents: loadRecents<RecentProject>(),
   addRecent: (name, network) =>
@@ -1235,6 +1317,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     const r = get().recents.find((x) => x.id === id);
     if (r) get().loadNetwork(r.network);
   },
+  markSaved: () => set((s) => ({ savedRef: s.network })),
 }));
 
 function uniqueNodeId(network: Network, base: string): string {

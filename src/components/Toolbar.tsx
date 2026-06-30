@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNetworkStore } from '../store/networkStore';
 import { runSimulation, validateNetwork } from '../engine/epanetRunner';
 import { buildInp } from '../engine/inpBuilder';
@@ -27,6 +27,7 @@ import {
   PlanIcon,
   SettingsIcon,
   FilterIcon,
+  TagIcon,
 } from './Icons';
 
 function relTime(ts: number): string {
@@ -63,6 +64,8 @@ export default function Toolbar() {
   const setSelectDialogOpen = useNetworkStore((s) => s.setSelectDialogOpen);
   const setLicenseOpen = useNetworkStore((s) => s.setLicenseOpen);
   const setHelpOpen = useNetworkStore((s) => s.setHelpOpen);
+  const markSaved = useNetworkStore((s) => s.markSaved);
+  const dirty = useNetworkStore((s) => s.network !== s.savedRef);
   const undo = useNetworkStore((s) => s.undo);
   const redo = useNetworkStore((s) => s.redo);
   const canUndo = useNetworkStore((s) => s.past.length > 0);
@@ -92,12 +95,29 @@ export default function Toolbar() {
   };
 
   // Enregistre, met à jour le nom du projet avec le fichier réellement choisi.
-  const doSave = async (saveAs: boolean) => {
-    const name = await saveProjectFile(network, { saveAs });
-    if (!name) return; // annulé
+  // Renvoie true si l'enregistrement a réussi (false si annulé).
+  const doSave = async (saveAs: boolean): Promise<boolean> => {
+    const net = useNetworkStore.getState().network; // état frais (raccourci clavier)
+    const name = await saveProjectFile(net, { saveAs });
+    if (!name) return false; // annulé
     updateMeta({ name });
-    addRecent(name, { ...network, meta: { ...network.meta, name } });
+    addRecent(name, { ...net, meta: { ...net.meta, name } });
+    markSaved();
+    return true;
   };
+
+  // Raccourci clavier Ctrl+S / Cmd+S : enregistrer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        doSave(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onNew = () => {
     clearSaveTarget();
@@ -134,8 +154,6 @@ export default function Toolbar() {
     { type: 'separator' },
     { label: 'Courbes', sub: 'caractéristique, rendement, volume…', icon: ic(CurveIcon), onClick: () => setCurveDialogOpen(true) },
     { label: 'Modulations', sub: 'coefficients horaires (demande, vitesse de pompe)', icon: ic(ClockIcon), onClick: () => setPatternDialogOpen(true) },
-    { type: 'separator' },
-    { label: 'Préfixes de nommage', sub: 'ex. N → N1, N2, N3…', icon: ic(SettingsIcon), onClick: () => setPrefixDialogOpen(true) },
   ];
 
   const onRun = async () => {
@@ -219,6 +237,7 @@ export default function Toolbar() {
         title="Nom du projet (modifiable via Fichier ▸ Enregistrer sous…)"
       >
         {network.meta.name || 'Sans titre'}
+        {dirty && <span className="dirty-dot" title="Modifications non enregistrées">●</span>}
       </span>
 
       <div className="toolbar-group">
@@ -241,6 +260,13 @@ export default function Toolbar() {
         <span className="toolbar-sep-v" />
 
         {/* 2 · Édition */}
+        <button
+          className={`btn btn-icon ${dirty ? 'btn-save-dirty' : ''}`}
+          onClick={() => doSave(false)}
+          title="Enregistrer (Ctrl+S)"
+        >
+          <SaveIcon size={18} />
+        </button>
         <button className="btn btn-icon" onClick={undo} disabled={!canUndo} title="Annuler (Ctrl+Z)">
           <UndoIcon size={18} />
         </button>
@@ -272,6 +298,19 @@ export default function Toolbar() {
         >
           <PlanIcon size={16} /> Fond de plan
         </button>
+
+        <span className="toolbar-sep-v" />
+
+        <button
+          className="btn"
+          onClick={() => setPrefixDialogOpen(true)}
+          title="Préfixes de nommage automatique des éléments (ex. N → N1, N2, N3…)"
+        >
+          <TagIcon size={16} /> Nommage
+        </button>
+
+        <span className="toolbar-sep-v" />
+
         <button
           className={`btn btn-menu ${menu?.kind === 'lib' ? 'btn-menu-open' : ''}`}
           onClick={openMenu('lib')}

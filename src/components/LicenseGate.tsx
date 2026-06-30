@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNetworkStore } from '../store/networkStore';
 import { EULA_TEXT, PRODUCT, COPYRIGHT, APP_VERSION } from '../legal/eula';
+import { getLicenseInfo } from '../license/license';
 
 const ACCEPT_KEY = 'hydronet:eula:accepted:v1';
 
@@ -14,6 +15,7 @@ export default function LicenseGate() {
   const setLicenseOpen = useNetworkStore((s) => s.setLicenseOpen);
   const [accepted, setAccepted] = useState(true); // optimiste -> ajusté au montage
   const [declined, setDeclined] = useState(false);
+  const [licensee, setLicensee] = useState('');
 
   useEffect(() => {
     setAccepted(localStorage.getItem(ACCEPT_KEY) === '1');
@@ -21,6 +23,19 @@ export default function LicenseGate() {
 
   const mustAccept = !accepted;
   const visible = mustAccept || licenseOpen;
+
+  // Charge le titulaire de la licence quand la fenêtre « À propos » s'ouvre.
+  useEffect(() => {
+    if (!visible || mustAccept) return;
+    let cancelled = false;
+    getLicenseInfo().then((info) => {
+      if (!cancelled) setLicensee(info?.email || '');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, mustAccept]);
+
   if (!visible) return null;
 
   const accept = () => {
@@ -87,6 +102,12 @@ export default function LicenseGate() {
               <strong>{PRODUCT}</strong> — version {APP_VERSION}
               <br />
               {COPYRIGHT}
+              {licensee && (
+                <>
+                  <br />
+                  Licence enregistrée à : <strong>{licensee}</strong>
+                </>
+              )}
             </p>
           )}
           <pre className="license-text">{EULA_TEXT}</pre>
