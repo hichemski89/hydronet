@@ -99,7 +99,7 @@ module.exports = `<!DOCTYPE html>
     <div class="tablewrap">
       <table>
         <thead><tr>
-          <th>Clé</th><th>Titulaire (e-mail)</th><th>Type</th><th>Poste lié</th><th>État</th><th>Actions</th>
+          <th>#</th><th>Clé</th><th>Titulaire (e-mail)</th><th>Type</th><th>Poste lié</th><th>État</th><th>Actions</th>
         </tr></thead>
         <tbody id="rows"></tbody>
       </table>
@@ -182,7 +182,7 @@ function render() {
   );
   document.getElementById('status').textContent = rows.length + ' / ' + DATA.rows.length + ' clés';
   const tb = document.getElementById('rows');
-  tb.innerHTML = rows.slice(0, 2000).map(r => {
+  tb.innerHTML = rows.slice(0, 2000).map((r, idx) => {
     const machine = r.machineId ? '<span class="muted">'+r.machineId.slice(0,12)+'…</span>' : '<span class="muted">—</span>';
     const email   = r.email ? r.email : '<span class="muted">—</span>';
     let actions = '';
@@ -191,6 +191,7 @@ function render() {
       if (r.machineId && !r.revoked) actions += '<button class="btn-warn btn-sm" onclick="unbind(\\''+r.key+'\\')">Détacher</button>';
     }
     return '<tr>'
+      + '<td class="muted">'+(idx+1)+'</td>'
       + '<td class="key" title="Cliquer pour copier" onclick="copyKey(\\''+r.key+'\\')">'+r.key+'</td>'
       + '<td>'+email+'</td>'
       + '<td>'+typeBadge(r.type)+'</td>'
@@ -227,9 +228,9 @@ async function generate() {
 }
 
 function exportCsv() {
-  const head = 'Cle;Email;Type;PosteLie;Etat';
-  const lines = DATA.rows.map(r =>
-    [r.key, r.email||'', r.type, r.machineId||'', r.revoked?'revoquee':(r.email?'attribuee':'libre')].join(';')
+  const head = 'N;Cle;Email;Type;PosteLie;Etat';
+  const lines = DATA.rows.map((r, i) =>
+    [i+1, r.key, r.email||'', r.type, r.machineId||'', r.revoked?'revoquee':(r.email?'attribuee':'libre')].join(';')
   );
   downloadText('HydroNet-inventaire-'+stamp()+'.csv', [head].concat(lines).join('\\r\\n'));
 }
