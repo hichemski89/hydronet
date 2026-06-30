@@ -18,6 +18,7 @@
  */
 const express = require('express');
 const crypto  = require('crypto');
+const DASHBOARD_HTML = require('./dashboard');
 
 const PRODUCT     = process.env.PRODUCT || 'HydroNet';
 const RECHECK_DAYS = 30;
@@ -81,6 +82,8 @@ function memoryStore() {
       byEmail.get(e).add(k);
     },
     getKeysByEmail: (e)     => [...(byEmail.get(e) ?? [])],
+    getEmails:      (ks)    => ks.map((k) => emails.get(k) ?? null),
+    getBindings:    (ks)    => ks.map((k) => bind.get(k) ?? null),
   };
 }
 
@@ -94,6 +97,16 @@ function redisStore(url, token) {
     if (!r.ok) throw new Error(`Redis ${r.status}`);
     const d = await r.json();
     return d.result;
+  };
+  // MGET par lots pour récupérer beaucoup de valeurs en peu d'appels.
+  const mgetPrefixed = async (prefix, keys) => {
+    const out = [];
+    for (let i = 0; i < keys.length; i += 200) {
+      const chunk = keys.slice(i, i + 200);
+      const r = await cmd('MGET', ...chunk.map((k) => prefix + k));
+      out.push(...(r || []));
+    }
+    return out;
   };
   return {
     kind:          'Upstash Redis',
@@ -114,6 +127,8 @@ function redisStore(url, token) {
       await cmd('SADD', `emailkeys:${e}`, k);
     },
     getKeysByEmail: (e)      => cmd('SMEMBERS', `emailkeys:${e}`),
+    getEmails:      (ks)     => mgetPrefixed('email:', ks),
+    getBindings:    (ks)     => mgetPrefixed('bind:', ks),
   };
 }
 
@@ -230,6 +245,9 @@ app.get('/', (_req, res) =>
 );
 app.get('/health', (_req, res) => res.json({ ok: true, product: PRODUCT, storage: store.kind }));
 
+// Console web d'administration (la page demande le secret côté navigateur).
+app.get('/admin', (_req, res) => res.type('html').send(DASHBOARD_HTML));
+
 // Activation : lie la clé au poste et renvoie un jeton signé.
 app.post('/activate', activateLimiter, wrap(async (req, res) => {
   const { product, key, machineId } = req.body || {};
@@ -307,11 +325,18 @@ function admin(req, res, next) {
   next();
 }
 
-app.post('/admin/keys', admin, wrap(async (_req, res) => {
+app.post('/admin/keys', admin, wrap(async (req, res) => {
   const seg = () => crypto.randomBytes(2).toString('hex').toUpperCase();
-  const key = `HN-${seg()}-${seg()}-${seg()}-${seg()}`;
-  await store.addCreated(key);
-  res.json({ key });
+  const newKey = () => `HN-${seg()}-${seg()}-${seg()}-${seg()}`;
+  const count = Math.max(1, Math.min(500, Number(req.body?.count) || 1));
+  const keys = [];
+  for (let i = 0; i < count; i++) {
+    const k = newKey();
+    await store.addCreated(k);
+    keys.push(k);
+  }
+  // Rétrocompat : { key } pour une seule clé, sinon { keys }.
+  res.json(count === 1 ? { key: keys[0], keys } : { keys });
 }));
 
 app.post('/admin/revoke', admin, wrap(async (req, res) => {
@@ -365,6 +390,42 @@ app.post('/admin/list', admin, wrap(async (_req, res) => {
     seeded: [...seededKeys],
     multi:  [...multiKeys],
     revoked,
+  });
+}));
+
+// Inventaire détaillé : chaque clé avec son titulaire (e-mail), son poste lié,
+// son type et son état. Alimente la console web /admin.
+app.post('/admin/inventory', admin, wrap(async (_req, res) => {
+  const created    = (await store.listCreated()) || [];
+  const seeded     = [...seededKeys];
+  const multi      = [...multiKeys];
+  const revokedSet = new Set((await store.listRevoked()) || []);
+
+  const clientKeys = [...created, ...seeded];        // clés 1 poste
+  const emails     = (await store.getEmails(clientKeys))   || [];
+  const binds      = (await store.getBindings(clientKeys)) || [];
+
+  const rows = clientKeys.map((k, i) => ({
+    key:       k,
+    type:      seededKeys.has(k) ? 'pre-definie' : 'generee',
+    email:     emails[i] || null,
+    machineId: binds[i] || null,
+    revoked:   revokedSet.has(k),
+  }));
+  for (const k of multi) {
+    rows.push({ key: k, type: 'demo', email: null, machineId: null, revoked: revokedSet.has(k) });
+  }
+
+  res.json({
+    counts: {
+      total:     rows.length,
+      generated: created.length,
+      seeded:    seeded.length,
+      demo:      multi.length,
+      assigned:  rows.filter((r) => r.email).length,
+      revoked:   revokedSet.size,
+    },
+    rows,
   });
 }));
 
