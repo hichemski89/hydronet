@@ -68,8 +68,10 @@ function memoryStore() {
     delBinding:    (k)      => void bind.delete(k),
     isRevoked:     (k)      => revoked.has(k),
     revoke:        (k)      => void revoked.add(k),
+    listRevoked:   ()       => [...revoked],
     isCreated:     (k)      => created.has(k),
     addCreated:    (k)      => void created.add(k),
+    listCreated:   ()       => [...created],
     getDemoStart:  (k, m)   => demo.get(`${k}|${m}`) ?? null,
     setDemoStart:  (k, m, t) => void demo.set(`${k}|${m}`, t),
     getEmail:      (k)      => emails.get(k) ?? null,
@@ -100,8 +102,10 @@ function redisStore(url, token) {
     delBinding:    (k)       => cmd('DEL', `bind:${k}`),
     isRevoked:     async (k) => (await cmd('SISMEMBER', 'revoked', k)) === 1,
     revoke:        (k)       => cmd('SADD', 'revoked', k),
+    listRevoked:   ()        => cmd('SMEMBERS', 'revoked'),
     isCreated:     async (k) => (await cmd('SISMEMBER', 'created', k)) === 1,
     addCreated:    (k)       => cmd('SADD', 'created', k),
+    listCreated:   ()        => cmd('SMEMBERS', 'created'),
     getDemoStart:  (k, m)    => cmd('GET', `demo:${k}:${m}`),
     setDemoStart:  (k, m, t) => cmd('SET', `demo:${k}:${m}`, String(t)),
     getEmail:      (k)       => cmd('GET', `email:${k}`),
@@ -343,6 +347,25 @@ app.post('/admin/by-email', admin, wrap(async (req, res) => {
   if (!email || email.length > MAX_EMAIL_LEN || !EMAIL_RE.test(email))
     return res.status(400).json({ error: 'Adresse e-mail invalide.' });
   res.json({ email, keys: (await store.getKeysByEmail(email)) || [] });
+}));
+
+// Inventaire complet des clés : générées (Redis), pré-définies (env), démo, révoquées.
+app.post('/admin/list', admin, wrap(async (_req, res) => {
+  const created = (await store.listCreated()) || [];
+  const revoked = (await store.listRevoked()) || [];
+  res.json({
+    counts: {
+      created: created.length,
+      seeded:  seededKeys.size,
+      multi:   multiKeys.size,
+      revoked: revoked.length,
+      total:   created.length + seededKeys.size + multiKeys.size,
+    },
+    created,
+    seeded: [...seededKeys],
+    multi:  [...multiKeys],
+    revoked,
+  });
 }));
 
 const PORT = process.env.PORT || 8080;
